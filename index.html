@@ -1,0 +1,2102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StringWise — Learn Violin</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2b1810">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="StringWise">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="description" content="A tuner, animated finger-placement guide, theory, weekly lessons, and guided practice for learning violin.">
+
+<style>
+  :root{
+    --wood-dark:#2b1810;
+    --wood:#4a2c1a;
+    --wood-light:#6b3f26;
+    --varnish:#a8542e;
+    --parchment:#efe4cd;
+    --parchment-line:#d8c8a4;
+    --ink:#2b2016;
+    --ink-soft:#6b5c45;
+    --g-string:#8b5a9e;
+    --d-string:#3d3d3d;
+    --a-string:#3a6ea8;
+    --e-string:#b8912f;
+    --good:#4a7c4e;
+    --bad:#a8422e;
+    --font-display:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    --font-body: Georgia, 'Iowan Old Style', serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--parchment);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(168,84,46,0.06), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(74,44,26,0.08), transparent 60%);
+    color:var(--ink);
+    font-family:var(--font-body);
+    min-height:100vh;
+  }
+  .app{max-width:900px;margin:0 auto;padding:0 20px 60px;}
+
+  /* Header */
+  header.top{
+    padding:36px 20px 22px;
+    text-align:center;
+    border-bottom:1px solid var(--parchment-line);
+    margin-bottom:0;
+  }
+  header.top h1{
+    font-family:var(--font-display);
+    font-size:clamp(28px,5vw,42px);
+    font-weight:400;
+    margin:0 0 6px;
+    letter-spacing:0.5px;
+    color:var(--wood-dark);
+  }
+  header.top p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:15px;
+    font-style:italic;
+  }
+
+  /* Nav - styled like tuning pegs */
+  nav.tabs{
+    display:flex;
+    justify-content:center;
+    gap:4px;
+    margin:26px 0 34px;
+    flex-wrap:wrap;
+  }
+  nav.tabs button{
+    font-family:var(--font-ui);
+    font-size:14px;
+    padding:10px 18px;
+    background:transparent;
+    border:none;
+    border-bottom:2px solid transparent;
+    color:var(--ink-soft);
+    cursor:pointer;
+    transition:color .15s, border-color .15s;
+  }
+  nav.tabs button:hover{color:var(--ink);}
+  nav.tabs button.active{
+    color:var(--wood-dark);
+    border-bottom:2px solid var(--varnish);
+    font-weight:600;
+  }
+
+  section.panel{display:none;animation:fade .25s ease;}
+  section.panel.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  h2.section-title{
+    font-family:var(--font-display);
+    font-weight:400;
+    font-size:26px;
+    color:var(--wood-dark);
+    margin:0 0 6px;
+  }
+  p.section-sub{color:var(--ink-soft);margin:0 0 28px;font-size:15px;}
+
+  /* ---------- TUNER ---------- */
+  .tuner-wrap{
+    background:var(--wood-dark);
+    border-radius:6px;
+    padding:34px 24px 30px;
+    color:var(--parchment);
+    box-shadow:0 10px 30px rgba(43,24,16,0.25);
+  }
+  .tuner-status{
+    text-align:center;font-family:var(--font-ui);font-size:13px;
+    color:#c9b89a;margin-bottom:18px;min-height:16px;
+  }
+  .note-readout{
+    display:flex;align-items:baseline;justify-content:center;gap:10px;margin-bottom:6px;
+  }
+  .note-readout .note-name{
+    font-family:var(--font-display);
+    font-size:76px;
+    line-height:1;
+    color:var(--parchment);
+    min-width:110px;text-align:center;
+  }
+  .note-readout .freq{
+    font-family:var(--font-ui);font-size:14px;color:#c9b89a;
+  }
+  .gauge{
+    position:relative;
+    width:100%;max-width:340px;margin:14px auto 0;
+  }
+  .gauge svg{width:100%;height:auto;display:block;}
+  .dial-caption{
+    text-align:center;font-family:var(--font-ui);font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:#8fbf8a;margin-top:-6px;opacity:0.85;
+  }
+  #needle, #fcNeedle{
+    transform-box: view-box;
+    transform-origin: 220px 205px;
+    transition: none;
+  }
+  .cents-label{
+    text-align:center;font-family:var(--font-ui);font-size:13px;color:#c9b89a;margin-bottom:22px;
+  }
+  .tuner-controls{display:flex;justify-content:center;gap:12px;margin-bottom:28px;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--font-ui);font-size:14px;font-weight:600;
+    padding:11px 22px;border-radius:3px;border:1px solid var(--varnish);
+    background:var(--varnish);color:#fff;cursor:pointer;
+    transition:filter .15s, transform .1s;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:scale(0.97);}
+  .btn.secondary{background:transparent;color:var(--parchment);border-color:#6b5c45;}
+  .btn.secondary:hover{border-color:var(--varnish);}
+  .string-refs{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+  }
+  .string-ref{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:4px;
+    padding:14px 8px;text-align:center;cursor:pointer;
+    font-family:var(--font-ui);
+    transition:background .15s, border-color .15s;
+  }
+  .string-ref:hover{background:rgba(255,255,255,0.09);}
+  .string-ref.active{background:rgba(168,84,46,0.18);border-color:var(--varnish);}
+  .string-ref .letter{font-family:var(--font-display);font-size:28px;display:block;margin-bottom:2px;}
+  .string-ref .hz{font-size:11px;color:#a89878;}
+  .string-ref[data-s="G"] .letter{color:var(--g-string);}
+  .string-ref[data-s="D"] .letter{color:#b8a888;}
+  .string-ref[data-s="A"] .letter{color:var(--a-string);}
+  .string-ref[data-s="E"] .letter{color:var(--e-string);}
+
+  .tuner-note{
+    font-family:var(--font-ui);font-size:13px;color:var(--ink-soft);
+    margin-top:20px;line-height:1.6;
+  }
+
+  /* ---------- FINGERBOARD ---------- */
+  .fb-legend{display:flex;gap:18px;margin-bottom:22px;flex-wrap:wrap;font-family:var(--font-ui);font-size:13px;color:var(--ink-soft);}
+  .fb-legend span{display:inline-flex;align-items:center;gap:6px;}
+  .fb-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .fingerboard{
+    background:linear-gradient(180deg,var(--wood-light),var(--wood));
+    border-radius:8px;padding:20px 10px 28px;
+    box-shadow:0 10px 24px rgba(43,24,16,0.2);
+    overflow-x:auto;
+  }
+  .fingerboard svg{display:block;margin:0 auto;min-width:560px;}
+  .fb-caption{
+    text-align:center;font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);margin-top:10px;
+  }
+  .fb-note-btn{cursor:pointer;}
+  .fb-hint{font-family:var(--font-ui);font-size:14px;color:var(--ink-soft);margin-top:20px;line-height:1.6;}
+
+  /* ---------- ANIMATED HAND FORM ILLUSTRATIONS ---------- */
+  .hand-section{margin-top:36px;}
+  .hand-section h3{
+    font-family:var(--font-display);font-weight:400;font-size:22px;
+    color:var(--wood-dark);margin:0 0 6px;
+  }
+  .hand-section > p.hs-sub{font-size:14px;color:var(--ink-soft);margin:0 0 18px;}
+  .hand-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media (max-width:680px){.hand-grid{grid-template-columns:1fr;}}
+  .hand-panel{
+    background:#fff8ec;border:1px solid var(--parchment-line);border-radius:8px;
+    padding:18px 18px 16px;
+  }
+  .hand-panel h4{
+    font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--wood);
+    margin:0 0 10px;
+  }
+  .hand-panel svg{display:block;width:100%;height:auto;}
+  .hand-panel .hp-caption{font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);line-height:1.6;margin:10px 0 0;}
+  .hand-checklist{list-style:none;margin:10px 0 0;padding:0;}
+  .hand-checklist li{font-size:12.5px;color:var(--ink-soft);padding-left:16px;position:relative;margin-bottom:5px;line-height:1.5;}
+  .hand-checklist li::before{content:'—';position:absolute;left:0;color:var(--varnish);}
+  .drawn-note{font-family:var(--font-ui);font-size:11.5px;color:#a89878;font-style:italic;margin-top:10px;}
+
+  @keyframes bowBob{
+    0%,100%{ transform:translateY(0); }
+    50%{ transform:translateY(3px); }
+  }
+
+  /* ---------- LIVE FINGER CHECK ---------- */
+  .fc-selectors{display:flex;gap:28px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;}
+  .fc-group{text-align:center;}
+  .fc-label{display:block;font-family:var(--font-ui);font-size:11px;color:#a89878;text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px;}
+  .fc-btn-row{display:flex;gap:6px;}
+  .fc-pick{
+    font-family:var(--font-display);font-size:16px;
+    width:36px;height:36px;border-radius:50%;
+    border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);
+    color:var(--parchment);cursor:pointer;transition:all .15s;
+  }
+  .fc-pick:hover{background:rgba(255,255,255,0.09);}
+  .fc-pick.active{background:var(--varnish);border-color:var(--varnish);color:#fff;font-weight:700;}
+
+  .fc-target{text-align:center;font-family:var(--font-ui);font-size:13px;color:#c9b89a;margin-bottom:20px;}
+  .fc-target strong{font-family:var(--font-display);font-size:24px;color:var(--parchment);margin:0 6px;}
+
+  .fc-status{text-align:center;font-family:var(--font-ui);font-size:13px;color:#c9b89a;margin-bottom:8px;min-height:16px;}
+  .fc-detected{text-align:center;font-family:var(--font-ui);font-size:13px;color:#e8dcc0;margin-bottom:2px;min-height:16px;}
+  .fc-verdict{text-align:center;font-family:var(--font-ui);font-size:15.5px;font-weight:700;margin-top:12px;min-height:22px;transition:color .15s;}
+  .fc-verdict.correct{color:#8fd28f;}
+  .fc-verdict.close{color:#e8c98a;}
+  .fc-verdict.off{color:#e0a08a;}
+  .fc-card{transition:box-shadow .25s;}
+  .fc-card.locked{box-shadow:0 0 0 2px #4a7c4e, 0 10px 30px rgba(43,24,16,0.25);}
+
+  /* ---------- THEORY ACCORDION ---------- */
+  .theory-toolbar{display:flex;justify-content:flex-end;gap:14px;margin-bottom:14px;}
+  .theory-toolbar button{
+    font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);
+    background:none;border:none;text-decoration:underline;cursor:pointer;padding:0;
+  }
+  .theory-toolbar button:hover{color:var(--wood-dark);}
+  .theory-acc{
+    background:#fff8ec;border:1px solid var(--parchment-line);border-radius:8px;
+    margin-bottom:12px;overflow:hidden;
+  }
+  .theory-acc summary{
+    list-style:none;cursor:pointer;padding:18px 22px;
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+  }
+  .theory-acc summary::-webkit-details-marker{display:none;}
+  .theory-acc .acc-title{font-family:var(--font-display);font-weight:400;font-size:19px;color:var(--wood-dark);}
+  .theory-acc .acc-sub{font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
+  .theory-acc .acc-arrow{
+    font-family:var(--font-ui);font-size:14px;color:var(--varnish);flex-shrink:0;
+    transition:transform .2s;
+  }
+  .theory-acc[open] .acc-arrow{transform:rotate(90deg);}
+  .theory-acc .acc-body{padding:0 22px 22px;border-top:1px solid var(--parchment-line);padding-top:16px;}
+  .theory-acc p, .theory-acc li{font-size:14.5px;line-height:1.65;color:var(--ink);}
+  .theory-acc ul{margin:8px 0 0;padding-left:20px;}
+  .theory-acc p + p, .theory-acc ul + p, .theory-acc p + ul{margin-top:10px;}
+  .theory-acc h5{font-family:var(--font-ui);font-size:12.5px;font-weight:700;color:var(--wood);text-transform:uppercase;letter-spacing:.03em;margin:16px 0 6px;}
+  .theory-acc h5:first-child{margin-top:0;}
+  .key-sig-row{display:flex;gap:20px;margin:12px 0;flex-wrap:wrap;}
+  .key-sig-box{background:var(--parchment);border:1px solid var(--parchment-line);border-radius:6px;padding:12px 16px;flex:1;min-width:180px;}
+  .key-sig-box strong{display:block;font-family:var(--font-display);font-size:16px;color:var(--wood-dark);margin-bottom:4px;}
+  .key-sig-box span{font-size:13px;color:var(--ink-soft);}
+
+  /* ---------- THEORY ---------- */
+  .theory-grid{display:grid;gap:22px;}
+  .card{
+    background:#fff8ec;
+    border:1px solid var(--parchment-line);
+    border-radius:6px;
+    padding:22px 24px;
+  }
+  .card h3{
+    font-family:var(--font-display);font-weight:400;font-size:20px;
+    margin:0 0 10px;color:var(--wood-dark);
+    display:flex;align-items:center;gap:10px;
+  }
+  .card p, .card li{font-size:15px;line-height:1.65;color:var(--ink);}
+  .card ul{margin:8px 0 0;padding-left:20px;}
+  .term-row{display:flex;gap:14px;padding:8px 0;border-bottom:1px solid var(--parchment-line);}
+  .term-row:last-child{border-bottom:none;}
+  .term-row .term{font-family:var(--font-ui);font-weight:600;min-width:120px;color:var(--wood);}
+  .term-row .def{color:var(--ink-soft);font-size:14px;}
+  .staff-svg{display:block;margin:14px auto;max-width:100%;}
+
+  /* ---------- PRACTICE ---------- */
+  .routine-list{display:flex;flex-direction:column;gap:14px;}
+  .routine-item{
+    background:#fff8ec;border:1px solid var(--parchment-line);border-radius:6px;
+    padding:16px 18px;display:flex;gap:14px;align-items:flex-start;
+    cursor:pointer;transition:background .15s;
+  }
+  .routine-item:hover{background:#fdf3e0;}
+  .routine-item.done{background:#eef3ea;border-color:#cbd8c4;}
+  .routine-item .check{
+    width:22px;height:22px;border-radius:50%;border:2px solid var(--varnish);
+    flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:transparent;transition:all .15s;
+  }
+  .routine-item.done .check{background:var(--good);border-color:var(--good);color:#fff;}
+  .routine-item .body h4{margin:0 0 4px;font-family:var(--font-ui);font-size:15px;font-weight:600;color:var(--ink);}
+  .routine-item .body p{margin:0;font-size:13.5px;color:var(--ink-soft);line-height:1.5;}
+  .routine-item .mins{margin-left:auto;font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);white-space:nowrap;padding-left:10px;}
+  .progress-bar-wrap{margin-bottom:24px;}
+  .progress-bar-track{background:var(--parchment-line);height:8px;border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{background:var(--varnish);height:100%;border-radius:4px;transition:width .3s;}
+  .progress-label{font-family:var(--font-ui);font-size:13px;color:var(--ink-soft);margin-bottom:8px;display:flex;justify-content:space-between;}
+  .reset-link{font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;margin-top:16px;}
+
+  footer.foot{text-align:center;padding:40px 20px 10px;color:var(--ink-soft);font-family:var(--font-ui);font-size:12px;}
+
+  /* ---------- LESSONS ---------- */
+  .week-rail{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:24px;}
+  .week-pill{
+    flex-shrink:0;font-family:var(--font-ui);font-size:12.5px;
+    padding:7px 13px;border-radius:14px;border:1px solid var(--parchment-line);
+    background:#fff8ec;color:var(--ink-soft);cursor:pointer;white-space:nowrap;
+    transition:all .15s;
+  }
+  .week-pill:hover{border-color:var(--varnish);}
+  .week-pill.current{border-color:var(--varnish);color:var(--wood-dark);font-weight:700;}
+  .week-pill.complete{background:#eef3ea;border-color:#9db894;color:#4a7c4e;}
+  .week-pill.complete::before{content:'✓ ';}
+
+  .lesson-card{
+    background:#fff8ec;border:1px solid var(--parchment-line);border-radius:8px;
+    padding:26px 26px 24px;margin-bottom:0;
+  }
+  .lesson-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:4px;flex-wrap:wrap;}
+  .lesson-head .eyebrow{font-family:var(--font-ui);font-size:12.5px;color:var(--varnish);font-weight:700;}
+  .lesson-head h3{font-family:var(--font-display);font-weight:400;font-size:24px;margin:2px 0 0;color:var(--wood-dark);}
+  .lesson-est{font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);white-space:nowrap;padding-top:6px;}
+
+  .lesson-goals{margin:18px 0 20px;}
+  .lesson-goals ul{margin:6px 0 0;padding-left:20px;}
+  .lesson-goals li{font-size:14.5px;line-height:1.6;color:var(--ink);}
+
+  .lesson-body p{font-size:15px;line-height:1.7;color:var(--ink);}
+  .lesson-body p + p{margin-top:10px;}
+
+  .assignment-box{
+    background:var(--wood-dark);color:var(--parchment);border-radius:6px;
+    padding:20px 22px;margin-top:22px;
+  }
+  .assignment-box h4{
+    font-family:var(--font-ui);font-size:13px;letter-spacing:.02em;
+    margin:0 0 14px;color:#e8c98a;font-weight:700;
+  }
+  .assignment-block{display:flex;gap:14px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.08);cursor:pointer;align-items:flex-start;}
+  .assignment-block:last-child{border-bottom:none;}
+  .assignment-block .acheck{
+    width:18px;height:18px;border-radius:50%;border:2px solid #e8c98a;flex-shrink:0;
+    margin-top:2px;display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:transparent;transition:all .15s;
+  }
+  .assignment-block.checked .acheck{background:var(--good);border-color:var(--good);color:#fff;}
+  .assignment-block.checked .atxt strong,.assignment-block.checked .atxt span{opacity:0.55;text-decoration:line-through;}
+  .assignment-block .amin{font-family:var(--font-ui);font-size:12px;color:#c9b89a;min-width:44px;flex-shrink:0;padding-top:1px;}
+  .assignment-block .atxt strong{display:block;font-size:14px;margin-bottom:2px;color:var(--parchment);transition:opacity .15s;}
+  .assignment-block .atxt span{font-size:13px;color:#c9b89a;line-height:1.5;transition:opacity .15s;}
+  .assignment-checked-count{font-family:var(--font-ui);font-size:12px;color:#c9b89a;margin-top:2px;}
+  .assignment-total{margin-top:14px;font-family:var(--font-ui);font-size:12px;color:#c9b89a;text-align:right;}
+
+  .lesson-actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;align-items:center;}
+  .lesson-actions .btn{padding:9px 18px;font-size:13px;}
+  .lesson-actions .btn[disabled]{opacity:0.4;cursor:not-allowed;filter:none;}
+
+  /* ---------- SHEET MUSIC ---------- */
+  .sheet-box{
+    background:var(--parchment);border:1px solid var(--parchment-line);border-radius:6px;
+    padding:18px 18px 14px;margin-top:22px;
+  }
+  .sheet-box h4{
+    font-family:var(--font-ui);font-size:13px;font-weight:700;color:var(--wood);
+    margin:0 0 3px;
+  }
+  .sheet-info{font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;}
+  .sheet-hint{font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);margin:10px 0 0;font-style:italic;}
+  .sheet-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:4px;}
+  .sheet-svg{display:block;height:132px;width:auto;}
+  .note-head{fill:#2b2016;}
+  .note-head.hollow{fill:var(--parchment);stroke:#2b2016;stroke-width:1.6;}
+  .note-head.correct{fill:#4a7c4e !important;stroke:#4a7c4e;}
+  .note-highlight{transition:fill .15s;}
+
+  /* ---------- LIVE PLAY-ALONG ---------- */
+  .pa-card{
+    background:#fff8ec;border:1px solid var(--parchment-line);border-radius:8px;
+    padding:22px 22px 20px;
+  }
+  .pa-top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+  .pa-select{
+    font-family:var(--font-ui);font-size:14px;color:var(--ink);
+    background:var(--parchment);border:1px solid var(--parchment-line);border-radius:4px;
+    padding:8px 12px;cursor:pointer;
+  }
+  .pa-progress{font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);white-space:nowrap;}
+  .pa-status{font-family:var(--font-ui);font-size:13.5px;color:var(--ink-soft);margin:14px 0 4px;min-height:18px;}
+  .lesson-nudge{font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>StringWise</h1>
+    <p>a small, honest place to start learning violin</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="tuner">Tuner</button>
+    <button class="tab-btn" data-tab="lessons">Lessons</button>
+    <button class="tab-btn" data-tab="fingerboard">Finger Placement</button>
+    <button class="tab-btn" data-tab="theory">Theory</button>
+    <button class="tab-btn" data-tab="practice">Practice</button>
+  </nav>
+
+  <!-- ===================== TUNER ===================== -->
+  <section class="panel active" id="panel-tuner">
+    <h2 class="section-title">Tuner</h2>
+    <p class="section-sub">Uses your computer's microphone to listen to a note and tell you how close it is to being in tune.</p>
+
+    <div class="tuner-wrap">
+      <div class="tuner-status" id="tunerStatus">Press "Start listening" and play an open string</div>
+      <div class="note-readout">
+        <div class="note-name" id="noteName">—</div>
+      </div>
+      <div class="freq" id="freqReadout" style="text-align:center;margin-bottom:6px;">&nbsp;</div>
+
+      <div class="gauge dial-gauge">
+        <svg viewBox="0 0 440 225">
+          <path d="M106.9,91.9 A160,160 0 0,1 136.4,68.6" fill="none" stroke="#c96a52" stroke-width="14"/>
+          <path d="M136.4,68.6 A160,160 0 0,1 190.0,47.8" fill="none" stroke="#e8c98a" stroke-width="14"/>
+          <path d="M190.0,47.8 A160,160 0 0,1 250.0,47.8" fill="none" stroke="#8fbf8a" stroke-width="14"/>
+          <path d="M250.0,47.8 A160,160 0 0,1 303.6,68.6" fill="none" stroke="#e8c98a" stroke-width="14"/>
+          <path d="M303.6,68.6 A160,160 0 0,1 333.1,91.9" fill="none" stroke="#c96a52" stroke-width="14"/>
+          <line x1="220" y1="205" x2="220" y2="57" stroke="#4a2c1a" stroke-width="1" opacity="0.5" stroke-dasharray="2,4"/>
+          <text x="80" y="108" font-size="15" fill="#a89878" font-family="Georgia,serif" text-anchor="middle">♭</text>
+          <text x="360" y="108" font-size="15" fill="#a89878" font-family="Georgia,serif" text-anchor="middle">♯</text>
+          <polygon id="needle" points="216,205 220,52 224,205" fill="#e8dcc0"/>
+          <circle cx="220" cy="205" r="10" fill="#1f130c" stroke="#c9b89a" stroke-width="1.5"/>
+          <circle cx="220" cy="205" r="3" fill="#e8dcc0"/>
+        </svg>
+        <div class="dial-caption" id="dialCaption">in tune</div>
+      </div>
+      <div class="cents-label" id="centsLabel">&nbsp;</div>
+
+      <div class="tuner-controls">
+        <button class="btn" id="micToggle">Start listening</button>
+        <button class="btn secondary" id="playRef">Play A (440 Hz)</button>
+      </div>
+
+      <div class="string-refs">
+        <div class="string-ref" data-s="G" data-hz="196.00"><span class="letter">G</span><span class="hz">196.0 Hz</span></div>
+        <div class="string-ref" data-s="D" data-hz="293.66"><span class="letter">D</span><span class="hz">293.7 Hz</span></div>
+        <div class="string-ref active" data-s="A" data-hz="440.00"><span class="letter">A</span><span class="hz">440.0 Hz</span></div>
+        <div class="string-ref" data-s="E" data-hz="659.25"><span class="letter">E</span><span class="hz">659.3 Hz</span></div>
+      </div>
+    </div>
+    <p class="tuner-note">Tap a string letter to hear its target pitch. Tune the peg (or fine tuner) until the needle sits in the center and the number below it reads close to 0 cents. Tune the thick strings (G, D) with the pegs and the thin strings (A, E) with the fine tuners near the tailpiece for small adjustments. Your browser will ask permission to use the microphone — audio is processed locally and never leaves your device.</p>
+  </section>
+
+  <!-- ===================== LESSONS ===================== -->
+  <section class="panel" id="panel-lessons">
+    <h2 class="section-title">Lessons</h2>
+    <p class="section-sub">One lesson a week, paced for an hour of practice a day. Work through them in order — each one builds on the last.</p>
+
+    <div class="week-rail" id="weekRail"></div>
+    <div id="lessonCard"></div>
+
+    <div class="hand-section">
+      <h3>Live Play-Along</h3>
+      <p class="hs-sub">Pick a piece, start listening, and play through it — StringWise follows along and highlights each note as you get it right.</p>
+
+      <div class="pa-card">
+        <div class="pa-top">
+          <select class="pa-select" id="paPieceSelect">
+            <option value="hotcrossbuns">Hot Cross Buns — Week 4</option>
+            <option value="mary">Mary Had a Little Lamb — Week 5</option>
+            <option value="lightlyrow">Lightly Row — Week 6</option>
+            <option value="rhythm">Long, Long Ago (simplified) — Week 9</option>
+            <option value="scale">D Major Scale — Week 10</option>
+          </select>
+          <div class="pa-progress" id="paProgress">Note 1 of —</div>
+        </div>
+
+        <div class="sheet-scroll" id="paStaffContainer"></div>
+
+        <div class="pa-status" id="paStatus">Press "Start listening" and play the first note</div>
+
+        <div class="tuner-controls">
+          <button class="btn" id="paMicToggle">Start listening</button>
+          <button class="btn secondary" id="paResetBtn">Restart piece</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FINGERBOARD ===================== -->
+  <section class="panel" id="panel-fingerboard">
+    <h2 class="section-title">Finger Placement</h2>
+    <p class="section-sub">First position — the most common starting pattern. Tap a dot to hear the pitch it should produce.</p>
+
+    <div class="fb-legend">
+      <span><i style="background:var(--g-string)"></i>G string</span>
+      <span><i style="background:#8a7a5c"></i>D string</span>
+      <span><i style="background:var(--a-string)"></i>A string</span>
+      <span><i style="background:var(--e-string)"></i>E string</span>
+    </div>
+
+    <div class="fingerboard">
+      <svg id="fbSvg" viewBox="0 0 560 320"></svg>
+    </div>
+    <p class="fb-caption">Numbers are finger numbers (1 = index, 2 = middle, 3 = ring, 4 = pinky). "0" is an open string — no finger down.</p>
+
+    <p class="fb-hint">
+      This layout is often called <strong>Suzuki pattern 1</strong>: fingers 1 and 2 are a whole step apart, 2 and 3 are a whole step apart, and 3 and 4 are a half step apart (finger 4 sounds the same note as the next open string up — try matching them). Keep your fingers curved, hovering just above the string, and land on the pads of your fingertips rather than flat. Your thumb stays relaxed opposite roughly your 1st or 2nd finger, and your wrist stays straight rather than collapsing inward.
+    </p>
+
+    <div class="hand-section">
+      <h3>How your hand should look</h3>
+      <p class="hs-sub">Original animated diagrams — watch the fingers curl, land on the fingertip pad, and lift, one at a time.</p>
+      <div class="hand-grid">
+
+        <div class="hand-panel">
+          <h4>Left hand frame</h4>
+          <svg viewBox="0 0 400 210" aria-label="Animated diagram of left hand fingers curling down onto the fingerboard one at a time">
+            <rect x="40" y="192" width="320" height="14" rx="3" fill="#1f130c" opacity="0.35"/>
+            <line x1="50" y1="190" x2="350" y2="190" stroke="#efe4cd" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+            <ellipse cx="200" cy="58" rx="68" ry="26" fill="none" stroke="#c9b89a" stroke-width="2"/>
+            <path d="M258,52 Q296,38 326,14" fill="none" stroke="#c9b89a" stroke-width="2" stroke-linecap="round"/>
+            <path d="M140,68 Q110,88 107,120" fill="none" stroke="#c9b89a" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="107" cy="120" r="5" fill="#c9b89a"/>
+            <text x="70" y="135" font-size="10" fill="#a89878" font-family="sans-serif">thumb</text>
+
+            <!-- finger 1 -->
+            <path stroke="#a8542e" stroke-width="5" stroke-linecap="round" fill="none" d="M150,86 Q140,135 140,175">
+              <animate attributeName="d" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.12;0.25;1"
+                values="M150,86 Q140,135 140,175;M150,86 Q138,150 150,190;M150,86 Q140,135 140,175;M150,86 Q140,135 140,175"/>
+            </path>
+            <circle fill="#a8542e" cx="140" cy="175" r="5">
+              <animate attributeName="cx" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.12;0.25;1" values="140;150;140;140"/>
+              <animate attributeName="cy" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.12;0.25;1" values="175;190;175;175"/>
+              <animate attributeName="r" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.12;0.25;1" values="5;9;5;5"/>
+            </circle>
+            <text x="146" y="76" font-size="11" fill="#efe4cd" font-family="sans-serif" text-anchor="middle">1</text>
+
+            <!-- finger 2 -->
+            <path stroke="#3a6ea8" stroke-width="5" stroke-linecap="round" fill="none" d="M182,90 Q176,135 178,175">
+              <animate attributeName="d" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.25;0.37;0.5;1"
+                values="M182,90 Q176,135 178,175;M182,90 Q176,135 178,175;M182,90 Q178,150 185,190;M182,90 Q176,135 178,175;M182,90 Q176,135 178,175"/>
+            </path>
+            <circle fill="#3a6ea8" cx="178" cy="175" r="5">
+              <animate attributeName="cx" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.25;0.37;0.5;1" values="178;178;185;178;178"/>
+              <animate attributeName="cy" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.25;0.37;0.5;1" values="175;175;190;175;175"/>
+              <animate attributeName="r" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.25;0.37;0.5;1" values="5;5;9;5;5"/>
+            </circle>
+            <text x="180" y="80" font-size="11" fill="#efe4cd" font-family="sans-serif" text-anchor="middle">2</text>
+
+            <!-- finger 3 -->
+            <path stroke="#8b5a9e" stroke-width="5" stroke-linecap="round" fill="none" d="M214,90 Q214,135 216,175">
+              <animate attributeName="d" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.5;0.62;0.75;1"
+                values="M214,90 Q214,135 216,175;M214,90 Q214,135 216,175;M214,90 Q216,150 220,190;M214,90 Q214,135 216,175;M214,90 Q214,135 216,175"/>
+            </path>
+            <circle fill="#8b5a9e" cx="216" cy="175" r="5">
+              <animate attributeName="cx" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.5;0.62;0.75;1" values="216;216;220;216;216"/>
+              <animate attributeName="cy" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.5;0.62;0.75;1" values="175;175;190;175;175"/>
+              <animate attributeName="r" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.5;0.62;0.75;1" values="5;5;9;5;5"/>
+            </circle>
+            <text x="212" y="80" font-size="11" fill="#efe4cd" font-family="sans-serif" text-anchor="middle">3</text>
+
+            <!-- finger 4 -->
+            <path stroke="#b8912f" stroke-width="5" stroke-linecap="round" fill="none" d="M244,86 Q248,132 248,175">
+              <animate attributeName="d" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.75;0.87;1"
+                values="M244,86 Q248,132 248,175;M244,86 Q248,132 248,175;M244,86 Q249,148 250,190;M244,86 Q248,132 248,175"/>
+            </path>
+            <circle fill="#b8912f" cx="248" cy="175" r="5">
+              <animate attributeName="cx" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.75;0.87;1" values="248;248;250;248"/>
+              <animate attributeName="cy" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.75;0.87;1" values="175;175;190;175"/>
+              <animate attributeName="r" dur="6.4s" repeatCount="indefinite" keyTimes="0;0.75;0.87;1" values="5;5;9;5"/>
+            </circle>
+            <text x="246" y="76" font-size="11" fill="#efe4cd" font-family="sans-serif" text-anchor="middle">4</text>
+          </svg>
+          <ul class="hand-checklist">
+            <li>Fingers stay rounded, never flat or straight</li>
+            <li>Each finger lands on its fleshy pad, close to the nail</li>
+            <li>Only one finger moves at a time — the others stay relaxed nearby</li>
+            <li>Thumb stays soft and still, roughly across from finger 1–2</li>
+          </ul>
+          <p class="drawn-note">Original diagram, drawn for this app — not a photo.</p>
+        </div>
+
+        <div class="hand-panel">
+          <h4>Bow hold</h4>
+          <svg viewBox="0 0 400 190" aria-label="Animated diagram of a relaxed bow hold with fingers gently curved over the bow stick">
+            <rect x="30" y="88" width="40" height="22" rx="4" fill="#2b1810"/>
+            <line x1="40" y1="99" x2="360" y2="99" stroke="#6b3f26" stroke-width="6" stroke-linecap="round"/>
+            <line x1="70" y1="99" x2="360" y2="99" stroke="#8a6a3f" stroke-width="1.4" opacity="0.6"/>
+
+            <g style="animation:bowBob 2.6s ease-in-out infinite; animation-delay:0s; transform-origin:140px 130px;">
+              <path d="M120,152 Q133,124 140,104" fill="none" stroke="#c9b89a" stroke-width="4.5" stroke-linecap="round"/>
+              <circle cx="140" cy="104" r="5" fill="#a8542e"/>
+              <text x="103" y="166" font-size="10" fill="#a89878" font-family="sans-serif">thumb</text>
+            </g>
+
+            <g style="animation:bowBob 2.3s ease-in-out infinite; animation-delay:0.15s; transform-origin:100px 60px;">
+              <path d="M95,55 Q90,82 100,97" fill="none" stroke="#c9b89a" stroke-width="4.5" stroke-linecap="round"/>
+              <circle cx="100" cy="97" r="5" fill="#3a6ea8"/>
+            </g>
+
+            <g style="animation:bowBob 2.5s ease-in-out infinite; animation-delay:0.35s; transform-origin:141px 55px;">
+              <path d="M141,50 Q138,78 142,96" fill="none" stroke="#c9b89a" stroke-width="4.5" stroke-linecap="round"/>
+              <circle cx="142" cy="96" r="5" fill="#8b5a9e"/>
+            </g>
+
+            <g style="animation:bowBob 2.4s ease-in-out infinite; animation-delay:0.55s; transform-origin:180px 57px;">
+              <path d="M180,52 Q180,80 178,97" fill="none" stroke="#c9b89a" stroke-width="4.5" stroke-linecap="round"/>
+              <circle cx="178" cy="97" r="5" fill="#b8912f"/>
+            </g>
+
+            <g style="animation:bowBob 2.7s ease-in-out infinite; animation-delay:0.75s; transform-origin:215px 62px;">
+              <path d="M215,60 Q220,84 212,99" fill="none" stroke="#c9b89a" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="212" cy="99" r="4.5" fill="#efe4cd"/>
+            </g>
+
+            <text x="200" y="150" font-size="10" fill="#a89878" font-family="sans-serif" text-anchor="middle">frog end (near the hand)</text>
+          </svg>
+          <ul class="hand-checklist">
+            <li>Thumb is bent, not locked straight, opposite roughly the middle finger</li>
+            <li>Fingers drape over the stick — they rest, they don't grip</li>
+            <li>Pinky stays gently curved on top, not stiff or dropped off the stick</li>
+            <li>The whole hand stays slightly springy, never rigid</li>
+          </ul>
+          <p class="drawn-note">Original diagram, drawn for this app — not a photo.</p>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="hand-section">
+      <h3>Check your finger placement live</h3>
+      <p class="hs-sub">Pick a string and a finger, play that note, and the app listens through your microphone to tell you if it's actually in tune.</p>
+
+      <div class="tuner-wrap fc-card" id="fcCard">
+        <div class="fc-selectors">
+          <div class="fc-group">
+            <span class="fc-label">String</span>
+            <div class="fc-btn-row" id="fcStringRow">
+              <button class="fc-pick" data-string="G">G</button>
+              <button class="fc-pick" data-string="D">D</button>
+              <button class="fc-pick active" data-string="A">A</button>
+              <button class="fc-pick" data-string="E">E</button>
+            </div>
+          </div>
+          <div class="fc-group">
+            <span class="fc-label">Finger</span>
+            <div class="fc-btn-row" id="fcFingerRow">
+              <button class="fc-pick" data-finger="0">0</button>
+              <button class="fc-pick active" data-finger="1">1</button>
+              <button class="fc-pick" data-finger="2">2</button>
+              <button class="fc-pick" data-finger="3">3</button>
+              <button class="fc-pick" data-finger="4">4</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="fc-target">Target note: <strong id="fcTargetNote">—</strong><span id="fcTargetFreq"></span></div>
+
+        <div class="fc-status" id="fcStatus">Press "Start listening" and play that note</div>
+        <div class="fc-detected" id="fcDetected">&nbsp;</div>
+
+        <div class="gauge dial-gauge">
+          <svg viewBox="0 0 440 225">
+            <path d="M106.9,91.9 A160,160 0 0,1 136.4,68.6" fill="none" stroke="#c96a52" stroke-width="14"/>
+            <path d="M136.4,68.6 A160,160 0 0,1 190.0,47.8" fill="none" stroke="#e8c98a" stroke-width="14"/>
+            <path d="M190.0,47.8 A160,160 0 0,1 250.0,47.8" fill="none" stroke="#8fbf8a" stroke-width="14"/>
+            <path d="M250.0,47.8 A160,160 0 0,1 303.6,68.6" fill="none" stroke="#e8c98a" stroke-width="14"/>
+            <path d="M303.6,68.6 A160,160 0 0,1 333.1,91.9" fill="none" stroke="#c96a52" stroke-width="14"/>
+            <line x1="220" y1="205" x2="220" y2="57" stroke="#4a2c1a" stroke-width="1" opacity="0.5" stroke-dasharray="2,4"/>
+            <text x="80" y="108" font-size="15" fill="#a89878" font-family="Georgia,serif" text-anchor="middle">♭</text>
+            <text x="360" y="108" font-size="15" fill="#a89878" font-family="Georgia,serif" text-anchor="middle">♯</text>
+            <polygon id="fcNeedle" points="216,205 220,52 224,205" fill="#e8dcc0"/>
+            <circle cx="220" cy="205" r="10" fill="#1f130c" stroke="#c9b89a" stroke-width="1.5"/>
+            <circle cx="220" cy="205" r="3" fill="#e8dcc0"/>
+          </svg>
+          <div class="dial-caption" id="fcDialCaption">in tune</div>
+        </div>
+        <div class="fc-verdict" id="fcVerdict">&nbsp;</div>
+
+        <div class="tuner-controls">
+          <button class="btn" id="fcMicToggle">Start listening</button>
+          <button class="btn secondary" id="fcPlayTarget">Hear target note</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== THEORY ===================== -->
+  <section class="panel" id="panel-theory">
+    <h2 class="section-title">Theory</h2>
+    <p class="section-sub">The reading and vocabulary you need to get started — tap a section to open it.</p>
+
+    <div class="theory-toolbar">
+      <button id="theoryExpandAll">Expand all</button>
+      <button id="theoryCollapseAll">Collapse all</button>
+    </div>
+
+    <details class="theory-acc" open>
+      <summary>
+        <div><div class="acc-title">Reading the staff</div><div class="acc-sub">Clef, staff lines, ledger lines, and accidentals</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <p>Violin music is written on a treble clef, five lines and four spaces. The open strings sit here:</p>
+        <svg class="staff-svg" viewBox="0 0 480 140" width="100%" height="140">
+          <g stroke="#2b2016" stroke-width="1.4">
+            <line x1="20" y1="20" x2="460" y2="20"/>
+            <line x1="20" y1="40" x2="460" y2="40"/>
+            <line x1="20" y1="60" x2="460" y2="60"/>
+            <line x1="20" y1="80" x2="460" y2="80"/>
+            <line x1="20" y1="100" x2="460" y2="100"/>
+          </g>
+          <text x="30" y="90" font-size="70" font-family="Georgia, serif" fill="#4a2c1a">𝄞</text>
+          <line x1="95" y1="120" x2="115" y2="120" stroke="#2b2016" stroke-width="1.2"/>
+          <circle cx="105" cy="120" r="6" fill="var(--g-string)"/>
+          <text x="95" y="138" font-size="11" fill="#6b5c45" font-family="Georgia">G3</text>
+          <circle cx="195" cy="80" r="6" fill="#8a7a5c"/>
+          <text x="186" y="70" font-size="11" fill="#6b5c45" font-family="Georgia">D4</text>
+          <circle cx="285" cy="60" r="6" fill="var(--a-string)"/>
+          <text x="276" y="50" font-size="11" fill="#6b5c45" font-family="Georgia">A4</text>
+          <line x1="365" y1="10" x2="385" y2="10" stroke="#2b2016" stroke-width="1.2"/>
+          <circle cx="375" cy="10" r="6" fill="var(--e-string)"/>
+          <text x="360" y="32" font-size="11" fill="#6b5c45" font-family="Georgia">E5</text>
+        </svg>
+        <p>Notice the open strings, low to high, spell <strong>G–D–A–E</strong> — a stack of perfect fifths. That's the shape of the whole instrument.</p>
+
+        <h5>Ledger lines</h5>
+        <p>When a note is too high or too low to fit on the five staff lines, short extra lines called <strong>ledger lines</strong> are added just for that note — that's what you see under G3 and above E5 in the diagram. The further above or below the staff, the more ledger lines are added.</p>
+
+        <h5>Accidentals</h5>
+        <ul>
+          <li><strong>Sharp (♯)</strong> — raises a note by a half step</li>
+          <li><strong>Flat (♭)</strong> — lowers a note by a half step</li>
+          <li><strong>Natural (♮)</strong> — cancels a previous sharp or flat, returning to the plain note</li>
+        </ul>
+        <p>An accidental applies for the rest of that measure only, unless it's part of the key signature (see the next section).</p>
+
+        <h5>Ties &amp; slurs</h5>
+        <p>Both are drawn as a curved line, but they mean different things: a <strong>tie</strong> connects two notes of the <em>same</em> pitch, joining them into one longer sound. A <strong>slur</strong> connects two or more <em>different</em> pitches, telling you to play them smoothly in one bow direction without a new stroke for each note.</p>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">Key signatures</div><div class="acc-sub">Why some pieces have sharps written up front</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <p>A <strong>key signature</strong> is a set of sharps or flats placed right after the clef, at the start of every line. It means those notes are sharped or flatted throughout the whole piece, so the composer doesn't have to mark an accidental every single time one appears.</p>
+        <div class="key-sig-row">
+          <div class="key-sig-box"><strong>G major</strong><span>One sharp: F♯. Every F in the piece is played as F♯ unless marked natural.</span></div>
+          <div class="key-sig-box"><strong>D major</strong><span>Two sharps: F♯ and C♯. Both are raised throughout.</span></div>
+        </div>
+        <p>These two keys are worth knowing early because they match the finger pattern you already use: the "whole-whole-half" first-position pattern from the Finger Placement tab naturally produces F♯ and C♯ wherever they occur — so you've been playing in these keys since week 3 without necessarily labeling it.</p>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">Rhythm &amp; time signatures</div><div class="acc-sub">Note values, rests, dotted notes, and counting</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <h5>Note values</h5>
+        <ul>
+          <li><strong>Whole note</strong> (○) — hold for 4 counts</li>
+          <li><strong>Half note</strong> (𝅗𝅥) — hold for 2 counts</li>
+          <li><strong>Quarter note</strong> (♩) — hold for 1 count</li>
+          <li><strong>Eighth note</strong> (♪) — hold for half a count, usually beamed in pairs</li>
+        </ul>
+
+        <h5>Rests</h5>
+        <p>A rest is a measured silence — same durations as the notes above (whole, half, quarter, eighth rests), each with its own symbol. Counting through a rest out loud is just as important as counting through a note; it's easy to rush back in too early.</p>
+
+        <h5>Dotted notes</h5>
+        <p>A dot placed after a note adds half of that note's value again. A dotted quarter note (1 count + half a count = 1.5 counts) is very common, usually paired with a single eighth note to fill out the remaining half beat.</p>
+
+        <h5>Time signatures</h5>
+        <p>Most beginner pieces are in <strong>4/4 time</strong> (four quarter-note beats per measure) or <strong>3/4 time</strong> (three beats, a waltz feel). The top number tells you how many beats per measure; the bottom number tells you what kind of note counts as one beat.</p>
+
+        <h5>Counting out loud</h5>
+        <p>Say "1, 2, 3, 4" evenly for quarter notes in 4/4 time. For eighth notes, subdivide with "1-and, 2-and, 3-and, 4-and." Clapping or tapping a rhythm while counting out loud — before you touch the violin — makes it far easier to play accurately once the bow is involved.</p>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">Bowing vocabulary</div><div class="acc-sub">Bow parts, strokes, and articulation marks</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <h5>Parts of the bow</h5>
+        <p>The <strong>frog</strong> is the part you hold, at the thick end. The <strong>tip</strong> is the thin far end. The <strong>hair</strong> is what touches the string — it runs the length of the stick and is what actually produces the sound.</p>
+
+        <h5>Bow direction</h5>
+        <div class="term-row"><span class="term">Down-bow (⊓)</span><span class="def">draw the bow from frog to tip, moving right</span></div>
+        <div class="term-row"><span class="term">Up-bow (V)</span><span class="def">draw the bow from tip to frog, moving left</span></div>
+
+        <h5>Playing style</h5>
+        <div class="term-row"><span class="term">Arco</span><span class="def">play with the bow (the default, unless marked otherwise)</span></div>
+        <div class="term-row"><span class="term">Pizzicato (pizz.)</span><span class="def">pluck the string with a finger instead of bowing</span></div>
+        <div class="term-row"><span class="term">Legato</span><span class="def">smooth and connected, minimal separation between notes</span></div>
+        <div class="term-row"><span class="term">Staccato</span><span class="def">short and detached, with a small stop between notes</span></div>
+        <div class="term-row"><span class="term">Détaché</span><span class="def">a clean, separate bow stroke for each note, without stopping the bow</span></div>
+        <div class="term-row"><span class="term">Tenuto</span><span class="def">hold the note for its full written value, slightly leaning into it</span></div>
+
+        <p>A curved line drawn over a group of notes is a <strong>slur</strong> — it tells you to play that whole group in a single bow direction, without changing strokes between notes.</p>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">Dynamics &amp; tempo</div><div class="acc-sub">Volume markings, tempo words, and gradual changes</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <h5>Dynamics (volume)</h5>
+        <div class="term-row"><span class="term">p (piano)</span><span class="def">soft</span></div>
+        <div class="term-row"><span class="term">f (forte)</span><span class="def">loud</span></div>
+        <div class="term-row"><span class="term">mf / mp</span><span class="def">moderately loud / moderately soft</span></div>
+        <div class="term-row"><span class="term">Crescendo (cresc. or &lt;)</span><span class="def">gradually get louder</span></div>
+        <div class="term-row"><span class="term">Decrescendo (decresc./dim. or &gt;)</span><span class="def">gradually get softer</span></div>
+
+        <h5>Tempo (speed)</h5>
+        <div class="term-row"><span class="term">Largo</span><span class="def">very slow</span></div>
+        <div class="term-row"><span class="term">Andante</span><span class="def">walking pace</span></div>
+        <div class="term-row"><span class="term">Moderato</span><span class="def">moderate, medium speed</span></div>
+        <div class="term-row"><span class="term">Allegro</span><span class="def">fast, lively</span></div>
+        <div class="term-row"><span class="term">Presto</span><span class="def">very fast</span></div>
+        <div class="term-row"><span class="term">Accelerando (accel.)</span><span class="def">gradually speed up</span></div>
+        <div class="term-row"><span class="term">Ritardando (rit.)</span><span class="def">gradually slow down</span></div>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">Left-hand finger numbers</div><div class="acc-sub">How violinists number fingers, and what comes next</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <p>Violinists don't number fingers the way pianists do. The thumb isn't counted; the index finger is "1," and so on:</p>
+        <ul>
+          <li><strong>1</strong> — index finger</li>
+          <li><strong>2</strong> — middle finger</li>
+          <li><strong>3</strong> — ring finger</li>
+          <li><strong>4</strong> — pinky (sometimes skipped in favor of the next open string, which sounds the same pitch)</li>
+        </ul>
+        <p>See the Finger Placement tab for exactly where each one lands, and the live checker there to test your intonation on each one.</p>
+
+        <h5>Looking ahead</h5>
+        <p>The pattern you're learning first is called first position, with a "high" 2nd finger (a whole step above finger 1). Many pieces in minor keys instead use a <strong>low 2nd finger</strong> (only a half step above finger 1) — your ear will start to notice the difference once you're comfortable with the basic pattern. Later still, <strong>shifting</strong> moves the whole hand frame up the fingerboard into new positions, opening up higher notes — that's a topic for well after these first twelve weeks.</p>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">How the violin is tuned</div><div class="acc-sub">Fifths, standard pitch, pegs vs. fine tuners</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <p>The four open strings — G, D, A, E — are each tuned a <strong>perfect fifth</strong> apart from their neighbor. That interval is why the violin's tuning has such a distinctive, open sound, and why a string that's slightly off will clash noticeably against the one next to it.</p>
+        <h5>Standard pitch</h5>
+        <p>The A string is tuned to <strong>440 Hz</strong> by international standard (some professional orchestras tune slightly higher, around 442–444 Hz, but 440 Hz is the right target for learning). The Tuner tab in this app is built around A440.</p>
+        <h5>Tuning by ear</h5>
+        <p>Play two adjacent strings together and listen for a wavering, "beating" sound — as the strings get closer to a true fifth, the beating slows down and eventually disappears. That smooth, beat-free sound is what in tune sounds like.</p>
+        <h5>Pegs vs. fine tuners</h5>
+        <p>The large wooden <strong>pegs</strong> at the scroll make big pitch changes — used mainly for the thicker G and D strings, and turned carefully since they can slip. The small screws near the tailpiece are <strong>fine tuners</strong>, used for small adjustments, especially on the thinner A and E strings.</p>
+      </div>
+    </details>
+
+    <details class="theory-acc">
+      <summary>
+        <div><div class="acc-title">Ear training &amp; listening</div><div class="acc-sub">Small habits that make intonation and rhythm easier</div></div>
+        <span class="acc-arrow">▸</span>
+      </summary>
+      <div class="acc-body">
+        <p>Reading notation gets you started, but your ear is what actually keeps you in tune and in time — and it improves with small, consistent habits, not extra hours of playing.</p>
+        <ul>
+          <li>Before playing a new note, try singing or humming it first — if you can match it with your voice, your fingers have a target to aim for</li>
+          <li>Listen to a recording of any piece you're learning before you practice it, so your ear already knows what it should sound like</li>
+          <li>Record yourself occasionally and listen back — it's much easier to hear pitch and rhythm problems in playback than in the moment</li>
+          <li>When two notes sound "off" together, that clash is useful information, not just a mistake to feel bad about — it's telling you which direction to adjust</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===================== PRACTICE ===================== -->
+  <section class="panel" id="panel-practice">
+    <h2 class="section-title">Practice</h2>
+    <p class="section-sub">A suggested first routine. Check items off as you go — your progress is saved.</p>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-label"><span id="progressText">0 of 0 done</span><span id="progressPct">0%</span></div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="routine-list" id="routineList"></div>
+    <button class="reset-link" id="resetProgress">Reset today's checklist</button>
+  </section>
+
+  <footer class="foot">Built for learning, not a replacement for a teacher — a good teacher will catch posture and tone issues this app can't hear.</footer>
+</div>
+
+<script>
+/* ============================================================
+   TAB NAVIGATION
+============================================================ */
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = document.querySelectorAll('.panel');
+tabBtns.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    tabBtns.forEach(b=>b.classList.remove('active'));
+    panels.forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============================================================
+   THEORY ACCORDION CONTROLS
+============================================================ */
+document.getElementById('theoryExpandAll').addEventListener('click', ()=>{
+  document.querySelectorAll('.theory-acc').forEach(d=> d.open = true);
+});
+document.getElementById('theoryCollapseAll').addEventListener('click', ()=>{
+  document.querySelectorAll('.theory-acc').forEach(d=> d.open = false);
+});
+
+/* ============================================================
+   SHARED AUDIO CONTEXT
+============================================================ */
+let audioCtx = null;
+function getCtx(){
+  if(!audioCtx){ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+  return audioCtx;
+}
+function playTone(freq, duration=1.1){
+  const ctx = getCtx();
+  const t0 = ctx.currentTime;
+
+  // Master envelope: soft attack, held sustain, gentle release —
+  // avoids the harsh on/off "beep" feel of a single raw oscillator.
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(0.0001, t0);
+  master.gain.exponentialRampToValueAtTime(0.24, t0 + 0.05);
+  master.gain.setValueAtTime(0.24, t0 + duration * 0.55);
+  master.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+  // Gentle lowpass to round off the harmonics rather than sounding buzzy.
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = freq * 5.5;
+  filter.Q.value = 0.6;
+
+  master.connect(filter).connect(ctx.destination);
+
+  // A handful of blended harmonics gives a warmer, more "instrument-like"
+  // tone than a single sine wave, and sounds the same way every time.
+  const harmonics = [
+    { mult:1, gain:0.9,  type:'sawtooth' },
+    { mult:2, gain:0.30, type:'sine' },
+    { mult:3, gain:0.16, type:'sine' },
+    { mult:4, gain:0.08, type:'sine' },
+    { mult:5, gain:0.04, type:'sine' },
+  ];
+  harmonics.forEach(h=>{
+    const osc = ctx.createOscillator();
+    osc.type = h.type;
+    osc.frequency.value = freq * h.mult;
+    const g = ctx.createGain();
+    g.gain.value = h.gain;
+    osc.connect(g).connect(master);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.05);
+  });
+}
+
+/* ============================================================
+   TUNER — pitch detection via autocorrelation
+============================================================ */
+const NOTE_STRINGS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToNote(freq){
+  const A4 = 440;
+  const semitones = 12 * (Math.log(freq/A4)/Math.log(2));
+  const rounded = Math.round(semitones);
+  const cents = Math.floor((semitones - rounded) * 100);
+  const noteIndex = ((rounded % 12) + 12 + 9) % 12; // +9 shifts so A=index9 aligns to C-based array
+  const octave = 4 + Math.floor((rounded + 9) / 12);
+  return { name: NOTE_STRINGS[noteIndex], octave, cents, targetFreq: A4*Math.pow(2, rounded/12) };
+}
+
+function autoCorrelate(buf, sampleRate){
+  // ACF2+ style autocorrelation pitch detector
+  const SIZE = buf.length;
+  let rms = 0;
+  for(let i=0;i<SIZE;i++){ rms += buf[i]*buf[i]; }
+  rms = Math.sqrt(rms/SIZE);
+  if(rms < 0.01) return -1; // too quiet
+
+  let r1=0, r2=SIZE-1, thres=0.2;
+  for(let i=0;i<SIZE/2;i++){ if(Math.abs(buf[i])<thres){ r1=i; break; } }
+  for(let i=1;i<SIZE/2;i++){ if(Math.abs(buf[SIZE-i])<thres){ r2=SIZE-i; break; } }
+  const trimmed = buf.slice(r1,r2);
+  const newSize = trimmed.length;
+
+  const c = new Array(newSize).fill(0);
+  for(let lag=0; lag<newSize; lag++){
+    for(let i=0; i<newSize-lag; i++){
+      c[lag] += trimmed[i]*trimmed[i+lag];
+    }
+  }
+  let d=0; while(c[d] > c[d+1]) d++;
+  let maxval=-1, maxpos=-1;
+  for(let i=d;i<newSize;i++){
+    if(c[i] > maxval){ maxval=c[i]; maxpos=i; }
+  }
+  let T0 = maxpos;
+  if(T0<=0) return -1;
+  const x1=c[T0-1]||c[T0], x2=c[T0], x3=c[T0+1]||c[T0];
+  const a = (x1 + x3 - 2*x2)/2;
+  const b = (x3 - x1)/2;
+  if(a) T0 = T0 - b/(2*a);
+  return sampleRate/T0;
+}
+
+let micStream=null, analyser=null, sourceNode=null, rafId=null;
+const micToggle = document.getElementById('micToggle');
+const tunerStatus = document.getElementById('tunerStatus');
+const noteNameEl = document.getElementById('noteName');
+const freqReadout = document.getElementById('freqReadout');
+const centsLabel = document.getElementById('centsLabel');
+const needle = document.getElementById('needle');
+
+let listening = false;
+micToggle.addEventListener('click', async ()=>{
+  if(listening){ stopListening(); return; }
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    tunerStatus.textContent = 'Microphone isn\u2019t available here — this needs to be opened over https:// (or as an installed app), not as a local file.';
+    return;
+  }
+
+  // Create/resume the AudioContext synchronously in response to this click,
+  // BEFORE awaiting the mic permission prompt — many mobile browsers only
+  // allow audio to actually start if resume() happens inside the click's
+  // own call stack, not after an awaited permission dialog.
+  const ctx = getCtx();
+  try{ if(ctx.state !== 'running') await ctx.resume(); }catch(e){ /* continue anyway */ }
+
+  try{
+    micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  }catch(err){
+    tunerStatus.textContent = 'Microphone access was blocked — allow it in your browser/site settings to use the tuner.';
+    return;
+  }
+
+  try{
+    if(ctx.state !== 'running') await ctx.resume();
+    sourceNode = ctx.createMediaStreamSource(micStream);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0;
+    sourceNode.connect(analyser);
+    listening = true;
+    micToggle.textContent = 'Stop listening';
+    tunerStatus.textContent = 'Listening… play a note';
+    detectPitchLoop();
+  }catch(err){
+    tunerStatus.textContent = 'Could not start the audio analyser — try reloading the page.';
+    if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  }
+});
+
+function stopListening(){
+  listening = false;
+  micToggle.textContent = 'Start listening';
+  tunerStatus.textContent = 'Press "Start listening" and play an open string';
+  noteNameEl.textContent = '—';
+  freqReadout.textContent = '\u00A0';
+  centsLabel.textContent = '\u00A0';
+  needle.style.transform = 'rotate(0deg)';
+  dialCaption.textContent = 'in tune';
+  dialCaption.style.color = '#8fbf8a';
+  if(rafId) cancelAnimationFrame(rafId);
+  if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  if(sourceNode){ sourceNode.disconnect(); sourceNode=null; }
+}
+
+const dialCaption = document.getElementById('dialCaption');
+
+function detectPitchLoop(){
+  if(!listening) return;
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  const freq = autoCorrelate(buf, getCtx().sampleRate);
+  if(freq !== -1 && freq > 60 && freq < 2000){
+    const {name, octave, cents, targetFreq} = freqToNote(freq);
+    noteNameEl.textContent = name;
+    freqReadout.textContent = `${freq.toFixed(1)} Hz  →  target ${targetFreq.toFixed(1)} Hz`;
+    const clamped = Math.max(-50, Math.min(50, cents));
+    const angle = (clamped/50) * 45; // max 45deg swing
+    needle.style.transform = `rotate(${angle}deg)`;
+    if(Math.abs(cents) <= 5){
+      centsLabel.textContent = `in tune (${cents>0?'+':''}${cents} cents)`;
+      centsLabel.style.color = '#8fd28f';
+      dialCaption.textContent = 'in tune';
+      dialCaption.style.color = '#8fbf8a';
+    } else {
+      centsLabel.textContent = `${cents>0?'+':''}${cents} cents — ${cents>0?'a little sharp, tune down':'a little flat, tune up'}`;
+      centsLabel.style.color = '#e8c98a';
+      dialCaption.textContent = cents>0 ? 'sharp' : 'flat';
+      dialCaption.style.color = Math.abs(cents)>35 ? '#c96a52' : '#e8c98a';
+    }
+    tunerStatus.textContent = 'Listening…';
+  }
+  rafId = requestAnimationFrame(detectPitchLoop);
+}
+
+const playRefBtn = document.getElementById('playRef');
+let tunerRefString = 'A', tunerRefHz = 440.00;
+
+function updateTunerRefButton(){
+  playRefBtn.textContent = `Play ${tunerRefString} (${tunerRefHz.toFixed(1)} Hz)`;
+}
+updateTunerRefButton();
+
+playRefBtn.addEventListener('click', ()=> playTone(tunerRefHz));
+document.querySelectorAll('.string-ref').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    document.querySelectorAll('.string-ref').forEach(e=>e.classList.remove('active'));
+    el.classList.add('active');
+    tunerRefString = el.dataset.s;
+    tunerRefHz = parseFloat(el.dataset.hz);
+    updateTunerRefButton();
+    playTone(tunerRefHz);
+  });
+});
+
+/* ============================================================
+   FINGERBOARD DIAGRAM
+============================================================ */
+const STRING_DATA = [
+  { name:'E', color:'var(--e-string)', y:40,  open:659.25, notes:['E','F#','G#','A','B'] },
+  { name:'A', color:'var(--a-string)', y:110, open:440.00, notes:['A','B','C#','D','E'] },
+  { name:'D', color:'#8a7a5c',         y:180, open:293.66, notes:['D','E','F#','G','A'] },
+  { name:'G', color:'var(--g-string)', y:250, open:196.00, notes:['G','A','B','C','D'] },
+];
+// semitone offsets from open string for finger 1,2,3,4 in this pattern (whole,whole,half from each other)
+const FINGER_SEMITONES = [0,2,4,5]; // open,1,2,3... wait need 1,2,3,4 -> use below
+const FINGER_STEPS = [0,2,4,5]; // finger0(open)=0, finger1=+2, finger2=+4, finger3=+5 ... but we also want finger4
+// Actually pattern: open=0, f1=+2(whole), f2=+4(whole), f3=+5(half from f2)... f4 = +7 (whole from f3, octave-open+... )
+// Let's define explicit semitone offsets for fingers 0,1,2,3,4:
+const FINGER_OFFSETS = [0, 2, 4, 5, 7];
+const FINGER_LABELS = ['0','1','2','3','4'];
+
+function noteFreqFromOpen(openFreq, semitoneOffset){
+  return openFreq * Math.pow(2, semitoneOffset/12);
+}
+
+function buildFingerboard(){
+  const svg = document.getElementById('fbSvg');
+  const xStart = 90, xEnd = 520;
+  let html = '';
+  // fingerboard wood strip
+  html += `<rect x="${xStart-20}" y="20" width="${xEnd-xStart+60}" height="270" rx="6" fill="#1f130c" opacity="0.35"/>`;
+  // nut line
+  html += `<line x1="${xStart}" y1="15" x2="${xStart}" y2="290" stroke="#e8dcc0" stroke-width="3"/>`;
+  html += `<text x="${xStart-4}" y="10" font-size="11" fill="#e8dcc0" font-family="sans-serif" text-anchor="end">nut</text>`;
+
+  STRING_DATA.forEach(str=>{
+    // string line
+    html += `<line x1="${xStart}" y1="${str.y}" x2="${xEnd}" y2="${str.y}" stroke="${str.color}" stroke-width="2.5" opacity="0.85"/>`;
+    html += `<text x="${xStart-45}" y="${str.y+5}" font-size="16" fill="#efe4cd" font-family="Georgia,serif">${str.name}</text>`;
+
+    FINGER_OFFSETS.forEach((semi, idx)=>{
+      const x = xStart + 18 + idx*105;
+      const freq = noteFreqFromOpen(str.open, semi);
+      const noteName = str.notes[idx];
+      html += `<g class="fb-note-btn" data-freq="${freq.toFixed(2)}" data-note="${noteName}">
+        <circle cx="${x}" cy="${str.y}" r="15" fill="${idx===0?'#efe4cd':str.color}" stroke="#efe4cd" stroke-width="${idx===0?'2':'1'}" opacity="${idx===0?'0.95':'0.92'}"/>
+        <text x="${x}" y="${str.y+5}" font-size="13" text-anchor="middle" fill="${idx===0?'#2b2016':'#fff'}" font-family="sans-serif" font-weight="600" style="pointer-events:none;">${FINGER_LABELS[idx]}</text>
+        <text x="${x}" y="${str.y+32}" font-size="11" text-anchor="middle" fill="#c9b89a" font-family="Georgia,serif" style="pointer-events:none;">${noteName}</text>
+      </g>`;
+    });
+  });
+  svg.innerHTML = html;
+
+  svg.querySelectorAll('.fb-note-btn').forEach(g=>{
+    g.style.cursor='pointer';
+    g.addEventListener('click', ()=> playTone(parseFloat(g.dataset.freq), 0.9));
+  });
+}
+buildFingerboard();
+
+/* ============================================================
+   LIVE FINGER-PLACEMENT CHECK
+   Independent mic listener that compares the detected pitch
+   against whichever string/finger the user has selected.
+============================================================ */
+let fcString = 'A', fcFinger = 1;
+let fcTargetFreqVal = 0;
+let fcMicStream=null, fcAnalyser=null, fcSourceNode=null, fcRafId=null, fcListening=false, fcStreak=0;
+
+function fcUpdateTarget(){
+  const str = STRING_DATA.find(s=>s.name===fcString);
+  const semi = FINGER_OFFSETS[fcFinger];
+  fcTargetFreqVal = noteFreqFromOpen(str.open, semi);
+  const noteName = str.notes[fcFinger];
+  document.getElementById('fcTargetNote').textContent = noteName;
+  document.getElementById('fcTargetFreq').textContent = ` (${fcTargetFreqVal.toFixed(1)} Hz)`;
+  fcStreak = 0;
+  document.getElementById('fcCard').classList.remove('locked');
+  const verdict = document.getElementById('fcVerdict');
+  verdict.textContent = '\u00A0';
+  verdict.className = 'fc-verdict';
+  const dc = document.getElementById('fcDialCaption');
+  if(dc){ dc.textContent = 'in tune'; dc.style.color = '#8fbf8a'; }
+}
+
+document.querySelectorAll('#fcStringRow .fc-pick').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#fcStringRow .fc-pick').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    fcString = btn.dataset.string;
+    fcUpdateTarget();
+  });
+});
+document.querySelectorAll('#fcFingerRow .fc-pick').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#fcFingerRow .fc-pick').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    fcFinger = parseInt(btn.dataset.finger);
+    fcUpdateTarget();
+  });
+});
+document.getElementById('fcPlayTarget').addEventListener('click', ()=> playTone(fcTargetFreqVal));
+
+fcUpdateTarget();
+
+const fcMicToggle = document.getElementById('fcMicToggle');
+const fcStatus = document.getElementById('fcStatus');
+const fcDetected = document.getElementById('fcDetected');
+const fcNeedle = document.getElementById('fcNeedle');
+const fcVerdict = document.getElementById('fcVerdict');
+const fcCard = document.getElementById('fcCard');
+const fcDialCaption = document.getElementById('fcDialCaption');
+
+fcMicToggle.addEventListener('click', async ()=>{
+  if(fcListening){ fcStopListening(); return; }
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    fcStatus.textContent = 'Microphone isn\u2019t available here — this needs to be opened over https:// (or as an installed app), not as a local file.';
+    return;
+  }
+
+  const ctx = getCtx();
+  try{ if(ctx.state !== 'running') await ctx.resume(); }catch(e){ /* continue anyway */ }
+
+  try{
+    fcMicStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  }catch(err){
+    fcStatus.textContent = 'Microphone access was blocked — allow it in your browser/site settings to use this.';
+    return;
+  }
+
+  try{
+    if(ctx.state !== 'running') await ctx.resume();
+    fcSourceNode = ctx.createMediaStreamSource(fcMicStream);
+    fcAnalyser = ctx.createAnalyser();
+    fcAnalyser.fftSize = 1024;
+    fcAnalyser.smoothingTimeConstant = 0;
+    fcSourceNode.connect(fcAnalyser);
+    fcListening = true;
+    fcStreak = 0;
+    fcMicToggle.textContent = 'Stop listening';
+    fcStatus.textContent = 'Listening… play the note';
+    fcDetectLoop();
+  }catch(err){
+    fcStatus.textContent = 'Could not start the audio analyser — try reloading the page.';
+    if(fcMicStream){ fcMicStream.getTracks().forEach(t=>t.stop()); fcMicStream=null; }
+  }
+});
+
+function fcStopListening(){
+  fcListening = false;
+  fcMicToggle.textContent = 'Start listening';
+  fcStatus.textContent = 'Press "Start listening" and play that note';
+  fcDetected.textContent = '\u00A0';
+  fcVerdict.textContent = '\u00A0';
+  fcVerdict.className = 'fc-verdict';
+  fcCard.classList.remove('locked');
+  fcNeedle.style.transform = 'rotate(0deg)';
+  fcDialCaption.textContent = 'in tune';
+  fcDialCaption.style.color = '#8fbf8a';
+  fcStreak = 0;
+  if(fcRafId) cancelAnimationFrame(fcRafId);
+  if(fcMicStream){ fcMicStream.getTracks().forEach(t=>t.stop()); fcMicStream=null; }
+  if(fcSourceNode){ fcSourceNode.disconnect(); fcSourceNode=null; }
+}
+
+function fcDetectLoop(){
+  if(!fcListening) return;
+  const buf = new Float32Array(fcAnalyser.fftSize);
+  fcAnalyser.getFloatTimeDomainData(buf);
+  const freq = autoCorrelate(buf, getCtx().sampleRate);
+
+  if(freq !== -1 && freq > 60 && freq < 2000){
+    const {name, octave} = freqToNote(freq);
+    fcDetected.textContent = `hearing: ${name}${octave} — ${freq.toFixed(1)} Hz`;
+    fcStatus.textContent = 'Listening…';
+
+    const cents = 1200 * Math.log2(freq / fcTargetFreqVal);
+    const clamped = Math.max(-50, Math.min(50, cents));
+    const angle = (clamped/50) * 45;
+    fcNeedle.style.transform = `rotate(${angle}deg)`;
+
+    const abs = Math.abs(cents);
+    if(abs <= 12){
+      fcStreak++;
+      fcVerdict.className = 'fc-verdict correct';
+      fcVerdict.textContent = fcStreak >= 15 ? '\u2713 Correct — nicely in tune!' : '\u2713 Correct!';
+      fcDialCaption.textContent = 'in tune';
+      fcDialCaption.style.color = '#8fbf8a';
+      if(fcStreak >= 15) fcCard.classList.add('locked');
+    } else {
+      fcStreak = 0;
+      fcCard.classList.remove('locked');
+      fcDialCaption.textContent = cents > 0 ? 'sharp' : 'flat';
+      fcDialCaption.style.color = abs > 45 ? '#c96a52' : '#e8c98a';
+      if(abs <= 45){
+        fcVerdict.className = 'fc-verdict close';
+        fcVerdict.textContent = cents > 0
+          ? `${Math.round(cents)}\u00A2 sharp — nudge your finger slightly toward the scroll`
+          : `${Math.round(abs)}\u00A2 flat — nudge your finger slightly toward the bridge`;
+      } else {
+        fcVerdict.className = 'fc-verdict off';
+        fcVerdict.textContent = 'Not that pitch — check you\u2019re on the right string and finger';
+      }
+    }
+  }
+  fcRafId = requestAnimationFrame(fcDetectLoop);
+}
+
+
+/* ============================================================
+   PRACTICE ROUTINE + PERSISTENCE (window.storage)
+============================================================ */
+const ROUTINE = [
+  {id:'posture', title:'Posture & hold check', desc:'Shoulder rest on, violin resting on collarbone, chin relaxed on the chinrest, left hand loose.', mins:'2 min'},
+  {id:'openbow', title:'Open string bowing', desc:'Slow, straight bows on each open string (G, D, A, E). Focus on a straight bow path and even tone.', mins:'5 min'},
+  {id:'tuning', title:'Tune your violin', desc:'Use the Tuner tab to check and correct all four strings before playing anything else.', mins:'3 min'},
+  {id:'fingerpattern', title:'Finger pattern drill', desc:'Place fingers 1-2-3-4 in order on one string, then lift them off in reverse order. Repeat on each string.', mins:'5 min'},
+  {id:'scale', title:'One-octave scale', desc:'Play a simple scale (e.g. D major starting on the D string) slowly, checking each note against the tuner or a reference tone.', mins:'5 min'},
+  {id:'piece', title:'Current piece or exercise', desc:"Work on whatever song or etude you're learning — a few measures at a time, slowly, before playing it up to tempo.", mins:'10 min'},
+  {id:'listen', title:'Listen back', desc:'If you can, record a short clip of yourself playing and listen back for tone and intonation.', mins:'2 min'},
+];
+
+const routineListEl = document.getElementById('routineList');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const progressPct = document.getElementById('progressPct');
+
+let doneState = {};
+
+async function loadProgress(){
+  try{
+    const res = await window.storage.get('practice-routine-progress');
+    doneState = res ? JSON.parse(res.value) : {};
+  }catch(e){
+    doneState = {};
+  }
+  renderRoutine();
+}
+
+async function saveProgress(){
+  try{ await window.storage.set('practice-routine-progress', JSON.stringify(doneState)); }
+  catch(e){ /* storage unavailable, continue silently in-memory */ }
+}
+
+function renderRoutine(){
+  routineListEl.innerHTML = '';
+  ROUTINE.forEach(item=>{
+    const done = !!doneState[item.id];
+    const row = document.createElement('div');
+    row.className = 'routine-item' + (done?' done':'');
+    row.innerHTML = `
+      <div class="check">${done?'✓':''}</div>
+      <div class="body">
+        <h4>${item.title}</h4>
+        <p>${item.desc}</p>
+      </div>
+      <div class="mins">${item.mins}</div>
+    `;
+    row.addEventListener('click', ()=>{
+      doneState[item.id] = !doneState[item.id];
+      renderRoutine();
+      saveProgress();
+    });
+    routineListEl.appendChild(row);
+  });
+  const total = ROUTINE.length;
+  const doneCount = ROUTINE.filter(i=>doneState[i.id]).length;
+  const pct = total? Math.round((doneCount/total)*100) : 0;
+  progressFill.style.width = pct+'%';
+  progressText.textContent = `${doneCount} of ${total} done`;
+  progressPct.textContent = pct+'%';
+}
+
+document.getElementById('resetProgress').addEventListener('click', ()=>{
+  doneState = {};
+  renderRoutine();
+  saveProgress();
+});
+
+loadProgress();
+
+/* ============================================================
+   LESSONS — one per week, paced for ~1 hour/day practice
+============================================================ */
+/* ============================================================
+   SHEET MUSIC — note data, staff-position math, SVG renderer
+============================================================ */
+const LETTER_INDEX = {C:0,D:1,E:2,F:3,G:4,A:5,B:6};
+const PITCH_CLASS = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+
+function diatonicOffset(letter, octave){
+  // Vertical staff position, in half-line-space steps relative to the
+  // bottom line (E4) — even steps land on a line, odd steps land in a space.
+  const natural = letter[0];
+  const idx = octave*7 + LETTER_INDEX[natural];
+  return idx - 30;
+}
+function noteFreq(letter, octave){
+  const midi = (octave+1)*12 + PITCH_CLASS[letter];
+  return 440 * Math.pow(2, (midi-69)/12);
+}
+function ledgerOffsets(offset){
+  const pos = [];
+  if(offset < 0){ for(let k=-2;k>=offset;k-=2) pos.push(k); }
+  else if(offset > 8){ for(let k=10;k<=offset;k+=2) pos.push(k); }
+  return pos;
+}
+
+function buildStaffSVG(notes, idPrefix){
+  const spacing = 48, leftMargin = 76, rightPad = 30;
+  const width = leftMargin + notes.length*spacing + rightPad;
+  const baselineY = 112, halfSpace = 6;
+  const yFor = o => baselineY - o*halfSpace;
+
+  let svg = `<svg viewBox="0 0 ${width} 176" class="sheet-svg" preserveAspectRatio="xMinYMid meet">`;
+  [0,2,4,6,8].forEach(o=>{
+    const y = yFor(o);
+    svg += `<line x1="16" y1="${y}" x2="${width-16}" y2="${y}" stroke="#4a2c1a" stroke-width="1.1" opacity="0.75"/>`;
+  });
+  svg += `<text x="20" y="${yFor(4)+18}" font-size="40" font-family="Georgia,serif" fill="#4a2c1a">\uD834\uDD1E</text>`;
+
+  let x = leftMargin, beatAcc = 0;
+  notes.forEach((note,i)=>{
+    const offset = diatonicOffset(note.n, note.o);
+    const y = yFor(offset);
+    const isSharp = note.n.length > 1;
+    const hollow = note.dur >= 2;
+    const stemDown = offset >= 4;
+
+    ledgerOffsets(offset).forEach(lo=>{
+      const ly = yFor(lo);
+      svg += `<line x1="${x-11}" y1="${ly}" x2="${x+11}" y2="${ly}" stroke="#4a2c1a" stroke-width="1.1" opacity="0.75"/>`;
+    });
+
+    if(isSharp){
+      svg += `<text x="${x-17}" y="${y+5}" font-size="15" font-family="Georgia,serif" fill="#4a2c1a">\u266F</text>`;
+    }
+
+    svg += `<g id="${idPrefix}-note-${i}" data-index="${i}">`;
+    svg += `<circle id="${idPrefix}-hl-${i}" class="note-highlight" cx="${x}" cy="${y}" r="11" fill="transparent"/>`;
+    if(note.dur < 4){
+      const stemX = stemDown ? x-6.5 : x+6.5;
+      const stemY2 = stemDown ? y+30 : y-30;
+      svg += `<line x1="${stemX}" y1="${y}" x2="${stemX}" y2="${stemY2}" stroke="#2b2016" stroke-width="1.6"/>`;
+    }
+    svg += `<ellipse id="${idPrefix}-head-${i}" class="note-head${hollow?' hollow':''}" cx="${x}" cy="${y}" rx="6.4" ry="4.8" transform="rotate(-18 ${x} ${y})"/>`;
+    svg += `</g>`;
+
+    beatAcc += note.dur;
+    x += spacing;
+    if(beatAcc >= 4 && i < notes.length-1){
+      svg += `<line x1="${x-spacing/2}" y1="${yFor(0)}" x2="${x-spacing/2}" y2="${yFor(8)}" stroke="#4a2c1a" stroke-width="1" opacity="0.5"/>`;
+      beatAcc = 0;
+    }
+  });
+  svg += `<line x1="${width-20}" y1="${yFor(0)}" x2="${width-20}" y2="${yFor(8)}" stroke="#2b2016" stroke-width="2.2"/>`;
+  svg += '</svg>';
+  return svg;
+}
+
+const PIECES = {
+  hotcrossbuns: {
+    title:'Hot Cross Buns',
+    info:'A string only — open, finger 1, finger 2',
+    notes:[
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:2},
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:2},
+      {n:'A',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'B',o:4,dur:1},
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:2}
+    ]
+  },
+  mary: {
+    title:'Mary Had a Little Lamb',
+    info:'D and A strings — open, finger 1, and finger 2 on the D string, plus open A',
+    notes:[
+      {n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},{n:'D',o:4,dur:1},{n:'E',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'F#',o:4,dur:2},
+      {n:'E',o:4,dur:1},{n:'E',o:4,dur:1},{n:'E',o:4,dur:2},
+      {n:'F#',o:4,dur:1},{n:'A',o:4,dur:1},{n:'A',o:4,dur:2},
+      {n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},{n:'D',o:4,dur:1},{n:'E',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'F#',o:4,dur:1},
+      {n:'E',o:4,dur:1},{n:'E',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},{n:'D',o:4,dur:4}
+    ]
+  },
+  lightlyrow: {
+    title:'Lightly Row',
+    info:'A string — open, finger 1, finger 2, and finger 3',
+    notes:[
+      {n:'A',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:2},
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:2},
+      {n:'C#',o:5,dur:1},{n:'C#',o:5,dur:1},{n:'C#',o:5,dur:2},
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:2},
+      {n:'C#',o:5,dur:1},{n:'C#',o:5,dur:1},{n:'C#',o:5,dur:2},
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:2},
+      {n:'C#',o:5,dur:1},{n:'D',o:5,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:4}
+    ]
+  },
+  rhythm: {
+    title:'Long, Long Ago (simplified)',
+    info:'A string — steady quarter and half notes, good for rhythm practice',
+    notes:[
+      {n:'A',o:4,dur:2},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'C#',o:5,dur:2},
+      {n:'A',o:4,dur:2},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:2},
+      {n:'A',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:2},{n:'A',o:4,dur:2}
+    ]
+  },
+  scale: {
+    title:'D Major Scale (one octave)',
+    info:'D string open through finger 3, then A string open through finger 3',
+    notes:[
+      {n:'D',o:4,dur:1},{n:'E',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'G',o:4,dur:1},
+      {n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'D',o:5,dur:2},
+      {n:'D',o:5,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:1},
+      {n:'G',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},{n:'D',o:4,dur:2}
+    ]
+  }
+};
+
+const LESSONS = [
+  {
+    week:1, title:'Meeting the instrument', est:'Week 1',
+    goals:[
+      'Hold the violin correctly under your chin without gripping it with your left hand',
+      'Hold the bow with a relaxed, curved hand',
+      'Produce a clear sound on all four open strings'
+    ],
+    body:[
+      'Before any note-reading or finger patterns, your body needs to learn to hold the instrument without tension. Rest the violin on your collarbone, chin gently on the chinrest — the shoulder rest (if you use one) should let your left hand stay free and relaxed, not clamping the violin in place.',
+      'For the bow hold, curve your fingers over the stick as if softly holding a small bird: thumb bent opposite the middle finger, fingers relaxed, not gripping. A tense bow hold is the single most common beginner habit to avoid early.',
+      'Spend this week almost entirely on open strings — G, D, A, E — first plucking them (pizzicato) to get comfortable, then slowly introducing the bow.'
+    ],
+    plan:[
+      {min:'10', title:'Hold check', text:'Violin up, chin down, shoulders relaxed. Check in a mirror if you have one.'},
+      {min:'15', title:'Pizzicato open strings', text:'Pluck each open string slowly, listening for a clean, even sound.'},
+      {min:'20', title:'Bow hold + first bowing', text:'Practice the bow hold in the air, then draw slow, short bows on the D and A strings.'},
+      {min:'10', title:'Tuner check-in', text:'Use the Tuner tab to check each open string and get used to what "in tune" sounds like.'},
+      {min:'5', title:'Cool down', text:'Put the violin down, shake out your hands and shoulders.'}
+    ]
+  },
+  {
+    week:2, title:'Full bows and steady tone', est:'Week 2',
+    goals:[
+      'Draw a full, straight bow from frog to tip on every string',
+      'Keep a consistent tone without scratching or crunching',
+      'Start recognizing down-bow and up-bow'
+    ],
+    body:[
+      'This week is about bow control, not new notes. A straight bow — one that stays parallel to the bridge the whole way — is what makes tone sound clean rather than scratchy. Watch your bow in a mirror or on camera if you can; most beginners drift toward the fingerboard near the tip.',
+      'Practice full-length bows: down-bow from frog to tip, up-bow from tip to frog, at a slow, even speed. If the tone crunches, you\'re usually pressing too hard or moving too slowly; if it sounds airy, try a touch more weight from your arm, not your grip.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Pizzicato open strings, then a few slow bows to loosen up.'},
+      {min:'20', title:'Full-bow drills', text:'Slow down-bows and up-bows on each string, aiming for a straight, even path.'},
+      {min:'15', title:'String crossings', text:'Move the bow slowly from G to D to A to E and back, keeping your right arm height adjusting smoothly.'},
+      {min:'10', title:'Tuner check-in', text:'Tune all four strings before finishing.'},
+      {min:'5', title:'Listen back', text:'Play one slow bow per string and just listen — is the tone even start to finish?'}
+    ]
+  },
+  {
+    week:3, title:'The first finger pattern', est:'Week 3',
+    goals:[
+      'Place fingers 1, 2, 3 on the A string in the standard first-position pattern',
+      'Play each note with a clear pitch, checked against the tuner',
+      'Keep your left-hand frame relaxed between notes'
+    ],
+    body:[
+      'Now the left hand joins in. Open the Finger Placement tab — you\'ll place finger 1 (index) for B, finger 2 (middle) for C#, finger 3 (ring) for D, all on the A string. Notice the spacing: finger 1 to 2 is a whole step, finger 2 to 3 is a half step.',
+      'Keep your fingers curved and hovering just above the string when not in use, rather than collapsing flat. Land on the pads of your fingertips. It\'s normal for this to feel awkward the first week — the goal is accuracy, not speed.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up bows', text:'Open string bowing, all four strings, focused on a straight bow.'},
+      {min:'20', title:'Finger placement drill', text:'On the A string: place finger 1, check pitch, lift; then 2, then 3. Repeat slowly, using the Finger Placement tab as a reference.'},
+      {min:'15', title:'Finger pattern with bow', text:'Bow each note (open, 1, 2, 3) instead of plucking, holding each for a full slow bow.'},
+      {min:'10', title:'Tuner check-in', text:'Check finger 1, 2 and 3 against the tuner one at a time.'},
+      {min:'5', title:'Cool down', text:'Shake out your left hand — a little fatigue is normal this week.'}
+    ]
+  },
+  {
+    week:4, title:'Adding the fourth finger', est:'Week 4', piece:'hotcrossbuns',
+    goals:[
+      'Add finger 4 to the pattern on the A string',
+      'Notice that finger 4 matches the pitch of the next open string',
+      'Play a simple four-note melody using open A through finger 4'
+    ],
+    body:[
+      'Finger 4 (pinky) completes the pattern: on the A string it lands on D — the same pitch as the open D string. Try alternating between finger 4 on the A string and the open D string; if your intonation is accurate, they should sound identical.',
+      'This week, try playing "Twinkle, Twinkle, Little Star" using just open A, and fingers 1, 2, 3 on the A string — it only uses a few of these notes and is a good first real tune.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings, then the finger 1-2-3 pattern from last week.'},
+      {min:'15', title:'Finger 4 drill', text:'Add finger 4 to the A string pattern; compare it to the open D string for pitch matching.'},
+      {min:'20', title:'First tune', text:'Work out the opening phrase of "Twinkle, Twinkle, Little Star" by ear or from simple sheet music, slowly.'},
+      {min:'10', title:'Tuner check-in', text:'Tune, then check finger 4 against the open D string.'},
+      {min:'5', title:'Play it through', text:'Play whatever you\'ve learned of the tune once, start to finish, without stopping.'}
+    ]
+  },
+  {
+    week:5, title:'The D string pattern', est:'Week 5', piece:'mary',
+    goals:[
+      'Apply the same finger pattern to the D string',
+      'Play a simple melody using both the A and D strings',
+      'Keep string crossings smooth while switching fingers'
+    ],
+    body:[
+      'The same whole-whole-half finger pattern repeats on every string, just centered on a different open note. On the D string: open D, finger 1 = E, finger 2 = F#, finger 3 = G. Your hand shape doesn\'t change — only which string it sits over.',
+      'This week, try "Mary Had a Little Lamb," which moves between the A and D strings and is a good test of clean string crossings while your fingers stay down.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings, then A-string pattern from memory.'},
+      {min:'15', title:'D string pattern drill', text:'Place fingers 1-2-3-4 on the D string slowly, checking each pitch.'},
+      {min:'20', title:'Two-string melody', text:'Work through "Mary Had a Little Lamb" (or a similar simple tune) using the A and D strings.'},
+      {min:'10', title:'Tuner check-in', text:'Check D string finger 1, 2 and 3 individually.'},
+      {min:'5', title:'Play it through', text:'One clean run-through of the tune, slow tempo.'}
+    ]
+  },
+  {
+    week:6, title:'G and E strings — the full pattern', est:'Week 6', piece:'lightlyrow',
+    goals:[
+      'Complete the same finger pattern on the G and E strings',
+      'Play a one-octave-range tune using all four strings',
+      'Start noticing the pattern repeats identically on every string'
+    ],
+    body:[
+      'By now the pattern should feel familiar: same finger shape, four different starting pitches. This week, fill in the G and E strings the same way you did the A and D strings.',
+      'Try "Hot Cross Buns" or "Lightly Row" — simple tunes that move across three or four strings and reinforce that the left-hand shape barely changes as you cross strings.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings, then review A and D string patterns.'},
+      {min:'15', title:'G and E string drill', text:'Place fingers 1-2-3-4 on the G string, then the E string, checking pitch against the tuner or the Finger Placement tab.'},
+      {min:'20', title:'Four-string tune', text:'Work through "Hot Cross Buns" or "Lightly Row," slowly, all four strings.'},
+      {min:'10', title:'String-crossing drill', text:'Slur slowly between adjacent strings, keeping your bow arm smooth.'},
+      {min:'5', title:'Play it through', text:'One full run-through, start to finish.'}
+    ]
+  },
+  {
+    week:7, title:'Reading it on paper', est:'Week 7',
+    goals:[
+      'Connect the notes you\'ve been playing by ear to the staff',
+      'Read a simple melody from written notation',
+      'Recognize your open strings and pattern notes on the staff'
+    ],
+    body:[
+      'You already know these pitches in your fingers — now it\'s time to see them on paper. Review the Theory tab\'s staff diagram and take time to match each open string to its position on the staff.',
+      'This week, find simple sheet music for a tune you already know by ear (like one from the past few weeks) and follow along while you play, rather than learning a brand-new piece. Seeing familiar notes on the page makes reading much easier than starting cold.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings and full finger pattern review, all four strings.'},
+      {min:'15', title:'Staff review', text:'Using the Theory tab, name each open string on the staff, then a few pattern notes.'},
+      {min:'20', title:'Read-along practice', text:'Play a tune you already know while following written notation for it, matching what you see to what you hear.'},
+      {min:'10', title:'Tuner check-in', text:'Tune, then check a few notes at random against the tuner.'},
+      {min:'5', title:'Reflect', text:'Note which notes were easiest and hardest to recognize on the page.'}
+    ]
+  },
+  {
+    week:8, title:'Bow control — detache and dynamics', est:'Week 8',
+    goals:[
+      'Play clean, separated bow strokes (détaché) at a steady tempo',
+      'Control volume with bow speed and weight, not pressure',
+      'Practice playing the same phrase both loud (forte) and soft (piano)'
+    ],
+    body:[
+      'With left-hand basics in place, this week shifts focus back to the bow. Détaché means a new bow direction for each note, without stopping or accenting — smooth but distinct. Practice this on a scale or a tune you already know.',
+      'For dynamics, remember from the Theory tab: forte is loud, piano is soft. The lever you have for this is mostly bow speed (faster and fuller for forte) and a little added arm weight, not gripping harder with your hand.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings, focusing on a clean bow change at each direction switch.'},
+      {min:'15', title:'Détaché drill', text:'Play a scale or known tune with one bow stroke per note, evenly spaced.'},
+      {min:'15', title:'Dynamics drill', text:'Play the same short phrase first forte, then piano, noticing what changes in your bow arm.'},
+      {min:'15', title:'Apply to a tune', text:'Take a tune you know and add a simple dynamic shape — soft to loud, or vice versa.'},
+      {min:'5', title:'Cool down', text:'One relaxed, slow bow on each string to finish.'}
+    ]
+  },
+  {
+    week:9, title:'New rhythms', est:'Week 9', piece:'rhythm',
+    goals:[
+      'Play steady eighth notes and simple dotted rhythms',
+      'Keep a consistent tempo without rushing or dragging',
+      'Learn a new tune that uses these rhythms'
+    ],
+    body:[
+      'So far most practice has used quarter and half notes. This week, add eighth notes (two per beat) and a simple dotted-quarter-eighth rhythm, both explained on the Theory tab. Clap or tap them first before playing, so your ear and hand agree on the rhythm before the bow gets involved.',
+      'A metronome or steady counting out loud is especially useful this week — rushing through faster notes is one of the most common beginner habits.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings and pattern review, all four strings.'},
+      {min:'10', title:'Rhythm clapping', text:'Clap or tap eighth-note and dotted rhythms while counting out loud, before playing them.'},
+      {min:'20', title:'New tune', text:'Learn a short tune that uses these rhythms (e.g. "Lightly Row" or "Long, Long Ago"), slowly at first.'},
+      {min:'15', title:'Tempo control', text:'Play a known tune at a slow, medium, and slightly faster tempo without losing evenness.'},
+      {min:'5', title:'Play it through', text:'One clean run-through of this week\'s tune.'}
+    ]
+  },
+  {
+    week:10, title:'A first real scale', est:'Week 10', piece:'scale',
+    goals:[
+      'Play a one-octave D major scale from memory',
+      'Connect the scale to the finger pattern you already know',
+      'Practice slurring two notes per bow'
+    ],
+    body:[
+      'A D major scale (D, E, F#, G, A, B, C#, D) uses exactly the finger pattern you\'ve been building since week 3, spread across the D and A strings. Playing it slowly, listening for evenness between notes, ties together everything so far.',
+      'This week also introduces slurs — playing two or more notes in one bow direction, marked with a curved line in notation. Start with slurring just two notes at a time within the scale.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings, then D and A string finger patterns separately.'},
+      {min:'20', title:'D major scale', text:'Play the scale slowly, one note per bow, listening closely to intonation on each step.'},
+      {min:'15', title:'Slur drill', text:'Play the same scale slurring two notes per bow, keeping both notes even in tone.'},
+      {min:'10', title:'Tuner check-in', text:'Check a few scale notes against the tuner, especially F# and C#.'},
+      {min:'5', title:'Play it through', text:'One full scale, up and down, from memory.'}
+    ]
+  },
+  {
+    week:11, title:'Polishing a piece', est:'Week 11',
+    goals:[
+      'Choose one tune from the past few weeks to bring up to performance quality',
+      'Identify and fix the hardest two or three spots in it',
+      'Play the piece with consistent tempo, tone, and intonation start to finish'
+    ],
+    body:[
+      'This week has no new material — it\'s dedicated to depth instead of breadth. Pick your favorite or strongest tune so far. Play it through once, and honestly note the two or three spots that are shakiest.',
+      'Isolate those spots and practice them slowly, in short loops, rather than restarting the whole piece each time. This is normal, valuable practice — most real progress happens in small trouble spots, not full run-throughs.'
+    ],
+    plan:[
+      {min:'10', title:'Warm-up', text:'Open strings and scale review.'},
+      {min:'10', title:'Identify trouble spots', text:'Play your chosen piece through once and note where it breaks down.'},
+      {min:'25', title:'Spot practice', text:'Loop each trouble spot slowly, a few notes at a time, gradually connecting them back into phrases.'},
+      {min:'10', title:'Full run-throughs', text:'Play the whole piece twice, slowly, focusing on staying even rather than rushing the hard parts.'},
+      {min:'5', title:'Listen back', text:'If you can, record yourself and note one thing to improve next time.'}
+    ]
+  },
+  {
+    week:12, title:'Putting it together', est:'Week 12',
+    goals:[
+      'Play a short recital piece from memory, start to finish',
+      'Tune the violin confidently by ear, checking with the tuner after',
+      'Reflect on progress and choose a direction for the next stage'
+    ],
+    body:[
+      'Twelve weeks in, you have open strings, a full first-position finger pattern on every string, basic rhythm reading, a scale, and at least one polished piece — genuinely the foundation of playing. This week is about consolidating that, not adding anything new.',
+      'Try tuning by ear first (matching each string to the one before it) before checking with the Tuner tab, as a step toward less reliance on the tool. From here, natural next steps include second position, more scales and keys, vibrato, and a wider repertoire — worth discussing with a teacher if you\'re ready for one, since a teacher can catch things this app can\'t hear.'
+    ],
+    plan:[
+      {min:'10', title:'Tune by ear', text:'Tune all four strings by ear first, then check with the Tuner tab.'},
+      {min:'15', title:'Review', text:'Play through the D major scale and the finger pattern on all four strings.'},
+      {min:'20', title:'Recital run-through', text:'Play your polished piece from week 11 twice, aiming for a clean, confident performance.'},
+      {min:'10', title:'Free play', text:'Revisit an earlier tune just for fun — notice how much easier it feels now.'},
+      {min:'5', title:'Reflect', text:'Write down (even a sentence) what felt easiest this week and what still needs work.'}
+    ]
+  }
+];
+
+const weekRailEl = document.getElementById('weekRail');
+const lessonCardEl = document.getElementById('lessonCard');
+let lessonsState = { currentWeek: 1, completedWeeks: [], weekChecks: {} };
+
+async function loadLessonsProgress(){
+  try{
+    const res = await window.storage.get('lessons-progress');
+    if(res) lessonsState = JSON.parse(res.value);
+    if(!lessonsState.weekChecks) lessonsState.weekChecks = {};
+  }catch(e){ /* default state stands */ }
+  renderWeekRail();
+  renderLessonCard(lessonsState.currentWeek);
+}
+async function saveLessonsProgress(){
+  try{ await window.storage.set('lessons-progress', JSON.stringify(lessonsState)); }
+  catch(e){ /* continue silently in-memory */ }
+}
+
+function renderWeekRail(){
+  weekRailEl.innerHTML = '';
+  LESSONS.forEach(l=>{
+    const pill = document.createElement('button');
+    const isComplete = lessonsState.completedWeeks.includes(l.week);
+    const isCurrent = l.week === lessonsState.currentWeek;
+    pill.className = 'week-pill' + (isCurrent?' current':'') + (isComplete && !isCurrent?' complete':'');
+    pill.textContent = 'Week ' + l.week;
+    pill.addEventListener('click', ()=>{
+      lessonsState.currentWeek = l.week;
+      renderWeekRail();
+      renderLessonCard(l.week);
+      saveLessonsProgress();
+    });
+    weekRailEl.appendChild(pill);
+  });
+}
+
+function renderLessonCard(weekNum){
+  const l = LESSONS.find(x=>x.week===weekNum);
+  if(!l) return;
+  const isComplete = lessonsState.completedWeeks.includes(l.week);
+  const totalMin = l.plan.reduce((s,b)=>s+parseInt(b.min),0);
+
+  if(!lessonsState.weekChecks[l.week]){
+    lessonsState.weekChecks[l.week] = l.plan.map(()=>false);
+  }
+  const checks = lessonsState.weekChecks[l.week];
+  const checkedCount = checks.filter(Boolean).length;
+  const allChecked = checkedCount === l.plan.length;
+  const hasNext = l.week < LESSONS.length;
+
+  lessonCardEl.innerHTML = `
+    <div class="lesson-card">
+      <div class="lesson-head">
+        <div>
+          <div class="eyebrow">${l.est}</div>
+          <h3>${l.title}</h3>
+        </div>
+        <div class="lesson-est">~60 min/day</div>
+      </div>
+
+      <div class="lesson-goals">
+        <strong style="font-family:var(--font-ui);font-size:13px;color:var(--ink-soft);">This week you'll:</strong>
+        <ul>${l.goals.map(g=>`<li>${g}</li>`).join('')}</ul>
+      </div>
+
+      <div class="lesson-body">${l.body.map(p=>`<p>${p}</p>`).join('')}</div>
+
+      ${l.piece && PIECES[l.piece] ? `
+      <div class="sheet-box">
+        <h4>This week's piece: ${PIECES[l.piece].title}</h4>
+        <p class="sheet-info">${PIECES[l.piece].info}</p>
+        <div class="sheet-scroll">${buildStaffSVG(PIECES[l.piece].notes, 'w'+l.week)}</div>
+        <p class="sheet-hint">Use the Live Play-Along tool below to practice this with real-time note detection.</p>
+      </div>` : ''}
+
+      <div class="assignment-box">
+        <h4>Daily practice assignment — check off as you complete each part today</h4>
+        ${l.plan.map((b,i)=>`
+          <div class="assignment-block${checks[i]?' checked':''}" data-idx="${i}">
+            <div class="acheck">${checks[i]?'✓':''}</div>
+            <div class="amin">${b.min} min</div>
+            <div class="atxt"><strong>${b.title}</strong><span>${b.text}</span></div>
+          </div>
+        `).join('')}
+        <div class="assignment-total">${checkedCount} of ${l.plan.length} checked off · ≈ ${totalMin} minutes total</div>
+      </div>
+
+      <div class="lesson-actions">
+        <button class="btn" id="completeWeekBtn">${isComplete ? 'Marked complete ✓' : 'Mark this week complete'}</button>
+        ${hasNext ? `<button class="btn secondary" id="skipWeekBtn" ${allChecked ? '' : 'disabled'}>Skip to Week ${l.week+1}</button>` : ''}
+        <span class="lesson-nudge">${allChecked ? 'All items checked — ready to move on.' : (isComplete ? '' : 'Check off every item above to unlock skipping ahead.')}</span>
+      </div>
+    </div>
+  `;
+
+  lessonCardEl.querySelectorAll('.assignment-block').forEach(block=>{
+    block.addEventListener('click', ()=>{
+      const idx = parseInt(block.dataset.idx);
+      lessonsState.weekChecks[l.week][idx] = !lessonsState.weekChecks[l.week][idx];
+      renderLessonCard(l.week);
+      saveLessonsProgress();
+    });
+  });
+
+  document.getElementById('completeWeekBtn').addEventListener('click', ()=>{
+    if(!lessonsState.completedWeeks.includes(l.week)){
+      lessonsState.completedWeeks.push(l.week);
+    }
+    if(l.week === lessonsState.currentWeek && hasNext){
+      lessonsState.currentWeek = l.week + 1;
+    }
+    renderWeekRail();
+    renderLessonCard(lessonsState.currentWeek);
+    saveLessonsProgress();
+  });
+
+  const skipBtn = document.getElementById('skipWeekBtn');
+  if(skipBtn){
+    skipBtn.addEventListener('click', ()=>{
+      if(!allChecked) return;
+      if(!lessonsState.completedWeeks.includes(l.week)){
+        lessonsState.completedWeeks.push(l.week);
+      }
+      lessonsState.currentWeek = l.week + 1;
+      renderWeekRail();
+      renderLessonCard(lessonsState.currentWeek);
+      saveLessonsProgress();
+    });
+  }
+}
+
+loadLessonsProgress();
+
+/* ============================================================
+   LIVE PLAY-ALONG — listens through the mic and follows along
+   a piece of sheet music, highlighting each note as it's played.
+============================================================ */
+let paCurrentPiece = 'hotcrossbuns';
+let paIndex = 0;
+let paMicStream=null, paAnalyser=null, paSourceNode=null, paRafId=null, paListening=false, paStreak=0;
+
+const paPieceSelect = document.getElementById('paPieceSelect');
+const paStaffContainer = document.getElementById('paStaffContainer');
+const paProgress = document.getElementById('paProgress');
+const paStatus = document.getElementById('paStatus');
+const paMicToggle = document.getElementById('paMicToggle');
+const paResetBtn = document.getElementById('paResetBtn');
+
+function paRenderStaff(){
+  const p = PIECES[paCurrentPiece];
+  paStaffContainer.innerHTML = buildStaffSVG(p.notes, 'pa');
+  paIndex = 0;
+  paStreak = 0;
+  paUpdateHighlight();
+  paStatus.textContent = 'Press "Start listening" and play the first note';
+}
+
+function paUpdateHighlight(){
+  const p = PIECES[paCurrentPiece];
+  p.notes.forEach((n,i)=>{
+    const hl = document.getElementById(`pa-hl-${i}`);
+    const head = document.getElementById(`pa-head-${i}`);
+    if(!hl || !head) return;
+    if(i < paIndex){
+      head.classList.add('correct');
+      hl.setAttribute('fill','transparent');
+    } else if(i === paIndex){
+      hl.setAttribute('fill','rgba(168,84,46,0.28)');
+      head.classList.remove('correct');
+    } else {
+      hl.setAttribute('fill','transparent');
+      head.classList.remove('correct');
+    }
+  });
+  paProgress.textContent = paIndex >= p.notes.length
+    ? `Complete! (${p.notes.length} of ${p.notes.length})`
+    : `Note ${paIndex+1} of ${p.notes.length}`;
+}
+
+paPieceSelect.addEventListener('change', (e)=>{
+  paCurrentPiece = e.target.value;
+  paStopListening();
+  paRenderStaff();
+});
+
+paResetBtn.addEventListener('click', ()=>{
+  paIndex = 0;
+  paStreak = 0;
+  paUpdateHighlight();
+  paStatus.textContent = paListening ? 'Listening… play the first note' : 'Press "Start listening" and play the first note';
+});
+
+paMicToggle.addEventListener('click', async ()=>{
+  if(paListening){ paStopListening(); return; }
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    paStatus.textContent = 'Microphone isn\u2019t available here — this needs to be opened over https:// (or as an installed app), not as a local file.';
+    return;
+  }
+
+  const ctx = getCtx();
+  try{ if(ctx.state !== 'running') await ctx.resume(); }catch(e){ /* continue anyway */ }
+
+  try{
+    paMicStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+  }catch(err){
+    paStatus.textContent = 'Microphone access was blocked — allow it in your browser/site settings to use this.';
+    return;
+  }
+
+  try{
+    if(ctx.state !== 'running') await ctx.resume();
+    paSourceNode = ctx.createMediaStreamSource(paMicStream);
+    paAnalyser = ctx.createAnalyser();
+    paAnalyser.fftSize = 1024;
+    paSourceNode.connect(paAnalyser);
+    paListening = true;
+    paStreak = 0;
+    paMicToggle.textContent = 'Stop listening';
+    paStatus.textContent = paIndex >= PIECES[paCurrentPiece].notes.length ? '\u2713 Piece complete! Restart to try again.' : 'Listening… play the highlighted note';
+    paDetectLoop();
+  }catch(err){
+    paStatus.textContent = 'Could not start the audio analyser — try reloading the page.';
+    if(paMicStream){ paMicStream.getTracks().forEach(t=>t.stop()); paMicStream=null; }
+  }
+});
+
+function paStopListening(){
+  paListening = false;
+  paMicToggle.textContent = 'Start listening';
+  paStatus.textContent = 'Press "Start listening" and play the first note';
+  if(paRafId) cancelAnimationFrame(paRafId);
+  if(paMicStream){ paMicStream.getTracks().forEach(t=>t.stop()); paMicStream=null; }
+  if(paSourceNode){ paSourceNode.disconnect(); paSourceNode=null; }
+}
+
+function paDetectLoop(){
+  if(!paListening) return;
+  const p = PIECES[paCurrentPiece];
+
+  if(paIndex >= p.notes.length){
+    paRafId = requestAnimationFrame(paDetectLoop);
+    return;
+  }
+
+  const buf = new Float32Array(paAnalyser.fftSize);
+  paAnalyser.getFloatTimeDomainData(buf);
+  const freq = autoCorrelate(buf, getCtx().sampleRate);
+
+  if(freq !== -1 && freq > 60 && freq < 2000){
+    const target = noteFreq(p.notes[paIndex].n, p.notes[paIndex].o);
+    const cents = 1200 * Math.log2(freq / target);
+    if(Math.abs(cents) <= 30){
+      paStreak++;
+      if(paStreak >= 6){
+        paIndex++;
+        paStreak = 0;
+        paUpdateHighlight();
+        paStatus.textContent = paIndex >= p.notes.length
+          ? '\u2713 Piece complete! Nicely done — restart to try again.'
+          : 'Listening… play the highlighted note';
+      }
+    } else {
+      paStreak = 0;
+    }
+  }
+  paRafId = requestAnimationFrame(paDetectLoop);
+}
+
+paRenderStaff();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{ /* offline caching unavailable, app still works online */ });
+  });
+}
+</script>
+</body>
+</html>
