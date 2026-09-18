@@ -411,6 +411,8 @@
   .note-head{fill:#2b2016;}
   .note-head.hollow{fill:var(--parchment);stroke:#2b2016;stroke-width:1.6;}
   .note-head.correct{fill:#4a7c4e !important;stroke:#4a7c4e;}
+  .note-head.wrong{fill:#a8422e !important;stroke:#a8422e;}
+  .note-head{transition:fill .1s;}
   .note-highlight{transition:fill .15s;}
 
   /* ---------- LIVE PLAY-ALONG ---------- */
@@ -504,11 +506,17 @@
       <div class="pa-card">
         <div class="pa-top">
           <select class="pa-select" id="paPieceSelect">
+            <option value="openwarmup">Open String Warm-Up — Week 2</option>
+            <option value="firstpattern">First Pattern Warm-Up — Week 3</option>
             <option value="hotcrossbuns">Hot Cross Buns — Week 4</option>
             <option value="mary">Mary Had a Little Lamb — Week 5</option>
             <option value="lightlyrow">Lightly Row — Week 6</option>
+            <option value="reading">Reading Practice Melody — Week 7</option>
+            <option value="dynamics">Dynamics Practice Melody — Week 8</option>
             <option value="rhythm">Long, Long Ago (simplified) — Week 9</option>
             <option value="scale">D Major Scale — Week 10</option>
+            <option value="etude">Etude in D — Week 11</option>
+            <option value="recital">Recital Piece — Week 12</option>
           </select>
           <div class="pa-progress" id="paProgress">Note 1 of —</div>
         </div>
@@ -1534,6 +1542,22 @@ function buildStaffSVG(notes, idPrefix){
 }
 
 const PIECES = {
+  openwarmup: {
+    title:'Open String Warm-Up',
+    info:'All four open strings — G, D, A, E',
+    notes:[
+      {n:'G',o:3,dur:2},{n:'D',o:4,dur:2},{n:'A',o:4,dur:2},{n:'E',o:5,dur:2},
+      {n:'E',o:5,dur:2},{n:'A',o:4,dur:2},{n:'D',o:4,dur:2},{n:'G',o:3,dur:4}
+    ]
+  },
+  firstpattern: {
+    title:'First Pattern Warm-Up',
+    info:'A string — open, finger 1, finger 2, finger 3',
+    notes:[
+      {n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'D',o:5,dur:1},
+      {n:'D',o:5,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:4}
+    ]
+  },
   hotcrossbuns: {
     title:'Hot Cross Buns',
     info:'A string only — open, finger 1, finger 2',
@@ -1586,6 +1610,47 @@ const PIECES = {
       {n:'D',o:5,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:1},
       {n:'G',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},{n:'D',o:4,dur:2}
     ]
+  },
+  reading: {
+    title:'Reading Practice Melody',
+    info:'D and A strings — an original short exercise for this week\u2019s notation practice',
+    notes:[
+      {n:'D',o:4,dur:1},{n:'E',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'G',o:4,dur:1},
+      {n:'A',o:4,dur:1},{n:'G',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},
+      {n:'D',o:4,dur:2},{n:'F#',o:4,dur:1},{n:'A',o:4,dur:1},
+      {n:'G',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'E',o:4,dur:1},{n:'D',o:4,dur:4}
+    ]
+  },
+  dynamics: {
+    title:'Dynamics Practice Melody',
+    info:'A string — play it once forte, once piano, per this week\u2019s assignment',
+    notes:[
+      {n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},
+      {n:'A',o:4,dur:4},
+      {n:'C#',o:5,dur:1},{n:'B',o:4,dur:1},{n:'A',o:4,dur:1},{n:'B',o:4,dur:1},
+      {n:'C#',o:5,dur:4}
+    ]
+  },
+  etude: {
+    title:'Etude in D',
+    info:'D and A strings — a short technical piece for polishing this week',
+    notes:[
+      {n:'D',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'A',o:4,dur:1},{n:'D',o:5,dur:1},
+      {n:'D',o:5,dur:2},{n:'A',o:4,dur:2},
+      {n:'F#',o:4,dur:1},{n:'A',o:4,dur:1},{n:'D',o:5,dur:1},{n:'F#',o:4,dur:1},
+      {n:'D',o:4,dur:4}
+    ]
+  },
+  recital: {
+    title:'Recital Piece',
+    info:'All four strings — an original closing melody spanning G to D, and back',
+    notes:[
+      {n:'G',o:3,dur:1},{n:'A',o:3,dur:1},{n:'B',o:3,dur:1},{n:'C',o:4,dur:1},
+      {n:'D',o:4,dur:1},{n:'E',o:4,dur:1},{n:'F#',o:4,dur:1},{n:'G',o:4,dur:1},
+      {n:'A',o:4,dur:1},{n:'B',o:4,dur:1},{n:'C#',o:5,dur:1},{n:'D',o:5,dur:1},
+      {n:'D',o:5,dur:2},{n:'A',o:4,dur:2},
+      {n:'G',o:3,dur:4}
+    ]
   }
 };
 
@@ -1611,7 +1676,7 @@ const LESSONS = [
     ]
   },
   {
-    week:2, title:'Full bows and steady tone', est:'Week 2',
+    week:2, title:'Full bows and steady tone', est:'Week 2', piece:'openwarmup',
     goals:[
       'Draw a full, straight bow from frog to tip on every string',
       'Keep a consistent tone without scratching or crunching',
@@ -1630,7 +1695,7 @@ const LESSONS = [
     ]
   },
   {
-    week:3, title:'The first finger pattern', est:'Week 3',
+    week:3, title:'The first finger pattern', est:'Week 3', piece:'firstpattern',
     goals:[
       'Place fingers 1, 2, 3 on the A string in the standard first-position pattern',
       'Play each note with a clear pitch, checked against the tuner',
@@ -1706,7 +1771,7 @@ const LESSONS = [
     ]
   },
   {
-    week:7, title:'Reading it on paper', est:'Week 7',
+    week:7, title:'Reading it on paper', est:'Week 7', piece:'reading',
     goals:[
       'Connect the notes you\'ve been playing by ear to the staff',
       'Read a simple melody from written notation',
@@ -1725,7 +1790,7 @@ const LESSONS = [
     ]
   },
   {
-    week:8, title:'Bow control — detache and dynamics', est:'Week 8',
+    week:8, title:'Bow control — detache and dynamics', est:'Week 8', piece:'dynamics',
     goals:[
       'Play clean, separated bow strokes (détaché) at a steady tempo',
       'Control volume with bow speed and weight, not pressure',
@@ -1782,7 +1847,7 @@ const LESSONS = [
     ]
   },
   {
-    week:11, title:'Polishing a piece', est:'Week 11',
+    week:11, title:'Polishing a piece', est:'Week 11', piece:'etude',
     goals:[
       'Choose one tune from the past few weeks to bring up to performance quality',
       'Identify and fix the hardest two or three spots in it',
@@ -1801,7 +1866,7 @@ const LESSONS = [
     ]
   },
   {
-    week:12, title:'Putting it together', est:'Week 12',
+    week:12, title:'Putting it together', est:'Week 12', piece:'recital',
     goals:[
       'Play a short recital piece from memory, start to finish',
       'Tune the violin confidently by ear, checking with the tuner after',
@@ -1958,9 +2023,10 @@ loadLessonsProgress();
    LIVE PLAY-ALONG — listens through the mic and follows along
    a piece of sheet music, highlighting each note as it's played.
 ============================================================ */
-let paCurrentPiece = 'hotcrossbuns';
+let paCurrentPiece = 'openwarmup';
 let paIndex = 0;
-let paMicStream=null, paAnalyser=null, paSourceNode=null, paRafId=null, paListening=false, paStreak=0;
+let paMicStream=null, paAnalyser=null, paSourceNode=null, paRafId=null, paListening=false;
+let paStreak=0, paWrongStreak=0, paBusy=false, paGen=0;
 
 const paPieceSelect = document.getElementById('paPieceSelect');
 const paStaffContainer = document.getElementById('paStaffContainer');
@@ -1974,6 +2040,9 @@ function paRenderStaff(){
   paStaffContainer.innerHTML = buildStaffSVG(p.notes, 'pa');
   paIndex = 0;
   paStreak = 0;
+  paWrongStreak = 0;
+  paBusy = false;
+  paGen++;
   paUpdateHighlight();
   paStatus.textContent = 'Press "Start listening" and play the first note';
 }
@@ -1984,15 +2053,16 @@ function paUpdateHighlight(){
     const hl = document.getElementById(`pa-hl-${i}`);
     const head = document.getElementById(`pa-head-${i}`);
     if(!hl || !head) return;
+    head.classList.remove('wrong');
     if(i < paIndex){
       head.classList.add('correct');
       hl.setAttribute('fill','transparent');
     } else if(i === paIndex){
+      head.classList.remove('correct');
       hl.setAttribute('fill','rgba(168,84,46,0.28)');
-      head.classList.remove('correct');
     } else {
-      hl.setAttribute('fill','transparent');
       head.classList.remove('correct');
+      hl.setAttribute('fill','transparent');
     }
   });
   paProgress.textContent = paIndex >= p.notes.length
@@ -2009,6 +2079,9 @@ paPieceSelect.addEventListener('change', (e)=>{
 paResetBtn.addEventListener('click', ()=>{
   paIndex = 0;
   paStreak = 0;
+  paWrongStreak = 0;
+  paBusy = false;
+  paGen++;
   paUpdateHighlight();
   paStatus.textContent = paListening ? 'Listening… play the first note' : 'Press "Start listening" and play the first note';
 });
@@ -2039,6 +2112,8 @@ paMicToggle.addEventListener('click', async ()=>{
     paSourceNode.connect(paAnalyser);
     paListening = true;
     paStreak = 0;
+    paWrongStreak = 0;
+    paBusy = false;
     paMicToggle.textContent = 'Stop listening';
     paStatus.textContent = paIndex >= PIECES[paCurrentPiece].notes.length ? '\u2713 Piece complete! Restart to try again.' : 'Listening… play the highlighted note';
     paDetectLoop();
@@ -2050,6 +2125,8 @@ paMicToggle.addEventListener('click', async ()=>{
 
 function paStopListening(){
   paListening = false;
+  paBusy = false;
+  paGen++;
   paMicToggle.textContent = 'Start listening';
   paStatus.textContent = 'Press "Start listening" and play the first note';
   if(paRafId) cancelAnimationFrame(paRafId);
@@ -2057,11 +2134,16 @@ function paStopListening(){
   if(paSourceNode){ paSourceNode.disconnect(); paSourceNode=null; }
 }
 
+const PA_CORRECT_CENTS = 30;   // within this many cents counts as "the right note"
+const PA_WRONG_CENTS = 60;     // beyond this many cents counts as "a different note"
+const PA_CORRECT_FRAMES = 6;   // consecutive good frames before confirming correct
+const PA_WRONG_FRAMES = 8;     // consecutive off frames before flashing red
+
 function paDetectLoop(){
   if(!paListening) return;
   const p = PIECES[paCurrentPiece];
 
-  if(paIndex >= p.notes.length){
+  if(paIndex >= p.notes.length || paBusy){
     paRafId = requestAnimationFrame(paDetectLoop);
     return;
   }
@@ -2073,18 +2155,54 @@ function paDetectLoop(){
   if(freq !== -1 && freq > 60 && freq < 2000){
     const target = noteFreq(p.notes[paIndex].n, p.notes[paIndex].o);
     const cents = 1200 * Math.log2(freq / target);
-    if(Math.abs(cents) <= 30){
+    const abs = Math.abs(cents);
+
+    if(abs <= PA_CORRECT_CENTS){
       paStreak++;
-      if(paStreak >= 6){
-        paIndex++;
-        paStreak = 0;
-        paUpdateHighlight();
-        paStatus.textContent = paIndex >= p.notes.length
-          ? '\u2713 Piece complete! Nicely done — restart to try again.'
-          : 'Listening… play the highlighted note';
+      paWrongStreak = 0;
+      if(paStreak >= PA_CORRECT_FRAMES){
+        paBusy = true;
+        const gen = paGen;
+        const head = document.getElementById(`pa-head-${paIndex}`);
+        const hl = document.getElementById(`pa-hl-${paIndex}`);
+        if(head) head.classList.add('correct');
+        if(hl) hl.setAttribute('fill','transparent');
+        paStatus.textContent = 'Correct!';
+        setTimeout(()=>{
+          if(gen !== paGen) return; // piece changed / reset while flashing — ignore
+          paIndex++;
+          paStreak = 0;
+          paWrongStreak = 0;
+          paBusy = false;
+          paUpdateHighlight();
+          paStatus.textContent = paIndex >= p.notes.length
+            ? '\u2713 Piece complete! Nicely done — restart to try again.'
+            : 'Listening… play the highlighted note';
+        }, 220);
+      }
+    } else if(abs >= PA_WRONG_CENTS){
+      paWrongStreak++;
+      paStreak = 0;
+      if(paWrongStreak >= PA_WRONG_FRAMES){
+        paBusy = true;
+        const gen = paGen;
+        const head = document.getElementById(`pa-head-${paIndex}`);
+        const hl = document.getElementById(`pa-hl-${paIndex}`);
+        if(head) head.classList.add('wrong');
+        if(hl) hl.setAttribute('fill','rgba(168,66,46,0.35)');
+        paStatus.textContent = 'Not quite — try again';
+        setTimeout(()=>{
+          if(gen !== paGen) return;
+          paWrongStreak = 0;
+          paBusy = false;
+          paUpdateHighlight();
+          paStatus.textContent = 'Listening… play the highlighted note';
+        }, 420);
       }
     } else {
+      // ambiguous zone (close-ish but not confirmed) — don't punish, just don't confirm either
       paStreak = 0;
+      paWrongStreak = 0;
     }
   }
   paRafId = requestAnimationFrame(paDetectLoop);
