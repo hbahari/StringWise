@@ -413,6 +413,7 @@
   .note-head.correct{fill:#4a7c4e !important;stroke:#4a7c4e;}
   .note-head.wrong{fill:#a8422e !important;stroke:#a8422e;}
   .note-head{transition:fill .1s;}
+  #pa-cursor{stroke:#fff8ec;stroke-width:1.5;pointer-events:none;}
   .note-highlight{transition:fill .15s;}
 
   /* ---------- LIVE PLAY-ALONG ---------- */
@@ -1489,11 +1490,14 @@ function ledgerOffsets(offset){
   return pos;
 }
 
+const SHEET_SPACING = 48, SHEET_LEFT_MARGIN = 76, SHEET_RIGHT_PAD = 30;
+const SHEET_BASELINE_Y = 112, SHEET_HALF_SPACE = 6;
+function yForOffset(offset){ return SHEET_BASELINE_Y - offset*SHEET_HALF_SPACE; }
+
 function buildStaffSVG(notes, idPrefix){
-  const spacing = 48, leftMargin = 76, rightPad = 30;
+  const spacing = SHEET_SPACING, leftMargin = SHEET_LEFT_MARGIN, rightPad = SHEET_RIGHT_PAD;
   const width = leftMargin + notes.length*spacing + rightPad;
-  const baselineY = 112, halfSpace = 6;
-  const yFor = o => baselineY - o*halfSpace;
+  const yFor = yForOffset;
 
   let svg = `<svg viewBox="0 0 ${width} 176" class="sheet-svg" preserveAspectRatio="xMinYMid meet">`;
   [0,2,4,6,8].forEach(o=>{
@@ -2043,6 +2047,17 @@ function paRenderStaff(){
   paWrongStreak = 0;
   paBusy = false;
   paGen++;
+
+  // Live pitch cursor: a small marker that slides up/down the staff in
+  // real time to show the pitch actually being heard, independent of the
+  // fixed, notated noteheads.
+  const svgEl = paStaffContainer.querySelector('svg');
+  if(svgEl){
+    svgEl.insertAdjacentHTML('beforeend',
+      `<circle id="pa-cursor" cx="${SHEET_LEFT_MARGIN}" cy="${SHEET_BASELINE_Y}" r="7" fill="transparent" opacity="0"/>`
+    );
+  }
+
   paUpdateHighlight();
   paStatus.textContent = 'Press "Start listening" and play the first note';
 }
@@ -2065,6 +2080,11 @@ function paUpdateHighlight(){
       hl.setAttribute('fill','transparent');
     }
   });
+  const cursor = document.getElementById('pa-cursor');
+  if(cursor){
+    cursor.setAttribute('cx', SHEET_LEFT_MARGIN + paIndex*SHEET_SPACING);
+    cursor.setAttribute('opacity', '0');
+  }
   paProgress.textContent = paIndex >= p.notes.length
     ? `Complete! (${p.notes.length} of ${p.notes.length})`
     : `Note ${paIndex+1} of ${p.notes.length}`;
@@ -2080,6 +2100,7 @@ paResetBtn.addEventListener('click', ()=>{
   paIndex = 0;
   paStreak = 0;
   paWrongStreak = 0;
+  paSilenceCount = 0;
   paBusy = false;
   paGen++;
   paUpdateHighlight();
@@ -2113,6 +2134,7 @@ paMicToggle.addEventListener('click', async ()=>{
     paListening = true;
     paStreak = 0;
     paWrongStreak = 0;
+    paSilenceCount = 0;
     paBusy = false;
     paMicToggle.textContent = 'Stop listening';
     paStatus.textContent = paIndex >= PIECES[paCurrentPiece].notes.length ? '\u2713 Piece complete! Restart to try again.' : 'Listening… play the highlighted note';
@@ -2129,6 +2151,8 @@ function paStopListening(){
   paGen++;
   paMicToggle.textContent = 'Start listening';
   paStatus.textContent = 'Press "Start listening" and play the first note';
+  const cursor = document.getElementById('pa-cursor');
+  if(cursor) cursor.setAttribute('opacity','0');
   if(paRafId) cancelAnimationFrame(paRafId);
   if(paMicStream){ paMicStream.getTracks().forEach(t=>t.stop()); paMicStream=null; }
   if(paSourceNode){ paSourceNode.disconnect(); paSourceNode=null; }
@@ -2137,13 +2161,16 @@ function paStopListening(){
 const PA_CORRECT_CENTS = 30;   // within this many cents counts as "the right note"
 const PA_WRONG_CENTS = 60;     // beyond this many cents counts as "a different note"
 const PA_CORRECT_FRAMES = 6;   // consecutive good frames before confirming correct
-const PA_WRONG_FRAMES = 8;     // consecutive off frames before flashing red
+const PA_SILENCE_FRAMES = 10;  // frames of no clear pitch before hiding the cursor
+
+let paSilenceCount = 0;
 
 function paDetectLoop(){
   if(!paListening) return;
   const p = PIECES[paCurrentPiece];
+  const cursor = document.getElementById('pa-cursor');
 
-  if(paIndex >= p.notes.length || paBusy){
+  if(paIndex >= p.notes.length){
     paRafId = requestAnimationFrame(paDetectLoop);
     return;
   }
@@ -2153,56 +2180,54 @@ function paDetectLoop(){
   const freq = autoCorrelate(buf, getCtx().sampleRate);
 
   if(freq !== -1 && freq > 60 && freq < 2000){
+    paSilenceCount = 0;
+
+    // Live cursor: shows exactly what's being heard right now, positioned
+    // on the staff the same way a notated note would be — so you can watch
+    // your own pitch slide up and down relative to the target note.
+    const heard = freqToNote(freq);
+    const cursorOffset = diatonicOffset(heard.name, heard.octave);
+    if(cursor){
+      cursor.setAttribute('cy', yForOffset(cursorOffset));
+      cursor.setAttribute('opacity', '1');
+    }
+
     const target = noteFreq(p.notes[paIndex].n, p.notes[paIndex].o);
     const cents = 1200 * Math.log2(freq / target);
     const abs = Math.abs(cents);
 
-    if(abs <= PA_CORRECT_CENTS){
-      paStreak++;
-      paWrongStreak = 0;
-      if(paStreak >= PA_CORRECT_FRAMES){
-        paBusy = true;
-        const gen = paGen;
-        const head = document.getElementById(`pa-head-${paIndex}`);
-        const hl = document.getElementById(`pa-hl-${paIndex}`);
-        if(head) head.classList.add('correct');
-        if(hl) hl.setAttribute('fill','transparent');
-        paStatus.textContent = 'Correct!';
-        setTimeout(()=>{
-          if(gen !== paGen) return; // piece changed / reset while flashing — ignore
-          paIndex++;
-          paStreak = 0;
-          paWrongStreak = 0;
-          paBusy = false;
-          paUpdateHighlight();
-          paStatus.textContent = paIndex >= p.notes.length
-            ? '\u2713 Piece complete! Nicely done — restart to try again.'
-            : 'Listening… play the highlighted note';
-        }, 220);
+    if(cursor){
+      cursor.setAttribute('fill', abs <= PA_CORRECT_CENTS ? '#4a7c4e' : (abs >= PA_WRONG_CENTS ? '#a8422e' : '#c98a4e'));
+    }
+
+    if(!paBusy){
+      if(abs <= PA_CORRECT_CENTS){
+        paStreak++;
+        if(paStreak >= PA_CORRECT_FRAMES){
+          paBusy = true;
+          const gen = paGen;
+          const head = document.getElementById(`pa-head-${paIndex}`);
+          if(head) head.classList.add('correct');
+          paStatus.textContent = 'Correct!';
+          setTimeout(()=>{
+            if(gen !== paGen) return; // piece changed / reset while flashing — ignore
+            paIndex++;
+            paStreak = 0;
+            paBusy = false;
+            paUpdateHighlight();
+            paStatus.textContent = paIndex >= p.notes.length
+              ? '\u2713 Piece complete! Nicely done — restart to try again.'
+              : 'Listening… play the highlighted note';
+          }, 220);
+        }
+      } else {
+        paStreak = 0;
       }
-    } else if(abs >= PA_WRONG_CENTS){
-      paWrongStreak++;
-      paStreak = 0;
-      if(paWrongStreak >= PA_WRONG_FRAMES){
-        paBusy = true;
-        const gen = paGen;
-        const head = document.getElementById(`pa-head-${paIndex}`);
-        const hl = document.getElementById(`pa-hl-${paIndex}`);
-        if(head) head.classList.add('wrong');
-        if(hl) hl.setAttribute('fill','rgba(168,66,46,0.35)');
-        paStatus.textContent = 'Not quite — try again';
-        setTimeout(()=>{
-          if(gen !== paGen) return;
-          paWrongStreak = 0;
-          paBusy = false;
-          paUpdateHighlight();
-          paStatus.textContent = 'Listening… play the highlighted note';
-        }, 420);
-      }
-    } else {
-      // ambiguous zone (close-ish but not confirmed) — don't punish, just don't confirm either
-      paStreak = 0;
-      paWrongStreak = 0;
+    }
+  } else {
+    paSilenceCount++;
+    if(paSilenceCount >= PA_SILENCE_FRAMES && cursor){
+      cursor.setAttribute('opacity', '0');
     }
   }
   paRafId = requestAnimationFrame(paDetectLoop);
