@@ -1,6 +1,7 @@
 {
   "name": "StringWise — Learn Violin",
   "short_name": "StringWise",
+  "version": "1.0.1",
   "description": "A tuner, animated finger-placement guide, theory, weekly lessons, and guided practice for learning violin.",
   "start_url": "./index.html",
   "scope": "./",
