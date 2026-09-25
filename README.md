@@ -55,12 +55,6 @@ one, so it works locally, but opening `index.html` directly as a `file://`
 URL will not allow microphone access — always serve it over `http://` (for
 local testing) or `https://` (once deployed).
 
-## Hosting on GitHub Pages
-
-1. Repo **Settings → Pages**
-2. Source: **Deploy from a branch**, branch `main`, folder `/ (root)`
-3. Your app will be live at `https://<your-username>.github.io/<repo-name>/`
-
 ## Building an Android app
 
 This project is set up as an installable PWA (`manifest.json` +
