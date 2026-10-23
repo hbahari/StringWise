@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fingerboard-v1';
+const CACHE_NAME = 'stringwise-v2';
 const ASSETS = [
   './',
   './index.html',

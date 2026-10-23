@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "golemapps.stringwise.app",
+        "sha256_cert_fingerprints": ["94:CF:DC:77:48:25:8C:01:D8:54:CB:40:93:C7:60:96:2C:65:7D:DE:9A:60:09:AA:57:E3:83:E5:08:35:80:18"]
+      }
+    }]
