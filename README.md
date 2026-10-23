@@ -91,13 +91,5 @@ it as a real published policy).
 
 ## License
 
-Add a license of your choice here (e.g. MIT) before making this repo
-public, if you haven't already — GitHub can generate one for you when
-creating the repo, or add one via **Add file → Create new file → LICENSE**.
+MIT license 
 
-## Credits
-
-All diagrams, icons, and sheet-music arrangements in this app are original,
-made for this project. Traditional folk melodies referenced in the Lessons
-tab (Hot Cross Buns, Mary Had a Little Lamb, Lightly Row, Long Long Ago)
-are in the public domain.
