@@ -406,6 +406,11 @@
   }
   .sheet-info{font-family:var(--font-ui);font-size:12.5px;color:var(--ink-soft);margin:0 0 12px;}
   .sheet-hint{font-family:var(--font-ui);font-size:12px;color:var(--ink-soft);margin:10px 0 0;font-style:italic;}
+  .sheet-play{
+    font-family:var(--font-ui);font-size:12.5px;font-weight:600;color:var(--varnish);
+    background:none;border:1px solid var(--varnish);border-radius:3px;padding:7px 12px;margin-top:8px;cursor:pointer;
+  }
+  .sheet-play:hover{background:var(--varnish);color:#fff;}
   .sheet-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:4px;}
   .sheet-svg{display:block;height:132px;width:auto;}
   .note-head{fill:#2b2016;}
@@ -414,6 +419,15 @@
   .note-head.wrong{fill:#a8422e !important;stroke:#a8422e;}
   .note-head{transition:fill .1s;}
   #pa-cursor{stroke:#fff8ec;stroke-width:1.5;pointer-events:none;}
+
+  /* ---------- MIC LEVEL METER ---------- */
+  .level-meter{
+    width:100%;max-width:220px;height:4px;margin:0 auto 14px;border-radius:2px;
+    background:rgba(255,255,255,0.12);overflow:hidden;
+  }
+  .level-meter.light{background:rgba(74,44,26,0.14);margin-top:10px;margin-bottom:0;}
+  .level-fill{height:100%;width:0;border-radius:2px;background:#8fbf8a;transition:width .08s linear;}
+  .level-fill.hot{background:#c96a52;}
   .note-highlight{transition:fill .15s;}
 
   /* ---------- LIVE PLAY-ALONG ---------- */
@@ -454,6 +468,7 @@
 
     <div class="tuner-wrap">
       <div class="tuner-status" id="tunerStatus">Press "Start listening" and play an open string</div>
+      <div class="level-meter" title="Microphone level"><div class="level-fill" id="tunerLevel"></div></div>
       <div class="note-readout">
         <div class="note-name" id="noteName">—</div>
       </div>
@@ -473,7 +488,7 @@
           <circle cx="220" cy="205" r="10" fill="#1f130c" stroke="#c9b89a" stroke-width="1.5"/>
           <circle cx="220" cy="205" r="3" fill="#e8dcc0"/>
         </svg>
-        <div class="dial-caption" id="dialCaption">in tune</div>
+        <div class="dial-caption" id="dialCaption">&nbsp;</div>
       </div>
       <div class="cents-label" id="centsLabel">&nbsp;</div>
 
@@ -507,23 +522,13 @@
       <div class="pa-card">
         <div class="pa-top">
           <select class="pa-select" id="paPieceSelect">
-            <option value="openwarmup">Open String Warm-Up — Week 2</option>
-            <option value="firstpattern">First Pattern Warm-Up — Week 3</option>
-            <option value="hotcrossbuns">Hot Cross Buns — Week 4</option>
-            <option value="mary">Mary Had a Little Lamb — Week 5</option>
-            <option value="lightlyrow">Lightly Row — Week 6</option>
-            <option value="reading">Reading Practice Melody — Week 7</option>
-            <option value="dynamics">Dynamics Practice Melody — Week 8</option>
-            <option value="rhythm">Long, Long Ago (simplified) — Week 9</option>
-            <option value="scale">D Major Scale — Week 10</option>
-            <option value="etude">Etude in D — Week 11</option>
-            <option value="recital">Recital Piece — Week 12</option>
           </select>
           <div class="pa-progress" id="paProgress">Note 1 of —</div>
         </div>
 
         <div class="sheet-scroll" id="paStaffContainer"></div>
 
+        <div class="level-meter light" title="Microphone level"><div class="level-fill" id="paLevel"></div></div>
         <div class="pa-status" id="paStatus">Press "Start listening" and play the first note</div>
 
         <div class="tuner-controls">
@@ -706,6 +711,7 @@
 
         <div class="fc-status" id="fcStatus">Press "Start listening" and play that note</div>
         <div class="fc-detected" id="fcDetected">&nbsp;</div>
+        <div class="level-meter" title="Microphone level"><div class="level-fill" id="fcLevel"></div></div>
 
         <div class="gauge dial-gauge">
           <svg viewBox="0 0 440 225">
@@ -721,7 +727,7 @@
             <circle cx="220" cy="205" r="10" fill="#1f130c" stroke="#c9b89a" stroke-width="1.5"/>
             <circle cx="220" cy="205" r="3" fill="#e8dcc0"/>
           </svg>
-          <div class="dial-caption" id="fcDialCaption">in tune</div>
+          <div class="dial-caption" id="fcDialCaption">&nbsp;</div>
         </div>
         <div class="fc-verdict" id="fcVerdict">&nbsp;</div>
 
@@ -1032,44 +1038,122 @@ function freqToNote(freq){
   const A4 = 440;
   const semitones = 12 * (Math.log(freq/A4)/Math.log(2));
   const rounded = Math.round(semitones);
-  const cents = Math.floor((semitones - rounded) * 100);
+  const cents = Math.round((semitones - rounded) * 100);
   const noteIndex = ((rounded % 12) + 12 + 9) % 12; // +9 shifts so A=index9 aligns to C-based array
   const octave = 4 + Math.floor((rounded + 9) / 12);
   return { name: NOTE_STRINGS[noteIndex], octave, cents, targetFreq: A4*Math.pow(2, rounded/12) };
 }
 
+/* Pitch engine: YIN (de Cheveigné & Kawahara), restricted to the violin's range.
+   Compared with the plain autocorrelation used before, it keeps working on quiet
+   microphones, resists octave errors on harmonic-rich violin tones, handles the low
+   G string reliably, and costs about a third of the CPU per frame.            */
+const PITCH_MIN_HZ = 170, PITCH_MAX_HZ = 1500;
+const YIN_THRESHOLD = 0.15, YIN_FALLBACK = 0.35;
+const RMS_GATE = 0.005;      // signal level (after MIC_GAIN) below which we call it silence
+const MIC_GAIN = 4;          // software boost so quiet phone/laptop mics still register
+let lastPitchRms = 0, lastPitchClarity = 0;
+let yinD = new Float32Array(0), yinCm = new Float32Array(0);
+let pitchBuf = new Float32Array(2048);
+
 function autoCorrelate(buf, sampleRate){
-  // ACF2+ style autocorrelation pitch detector
-  const SIZE = buf.length;
-  let rms = 0;
-  for(let i=0;i<SIZE;i++){ rms += buf[i]*buf[i]; }
-  rms = Math.sqrt(rms/SIZE);
-  if(rms < 0.01) return -1; // too quiet
+  const N = buf.length;
+  const tauMin = Math.max(2, Math.floor(sampleRate / PITCH_MAX_HZ));
+  const tauMax = Math.min(Math.floor(sampleRate / PITCH_MIN_HZ), N >> 1);
+  const W = Math.min(1024, N - tauMax);
+  const start = N - (W + tauMax);          // newest samples only, for low latency
+  let sumSq = 0;
+  for(let i=start;i<N;i++){ sumSq += buf[i]*buf[i]; }
+  lastPitchRms = Math.sqrt(sumSq/(N-start));
+  lastPitchClarity = 0;
+  if(lastPitchRms < RMS_GATE) return -1;
 
-  let r1=0, r2=SIZE-1, thres=0.2;
-  for(let i=0;i<SIZE/2;i++){ if(Math.abs(buf[i])<thres){ r1=i; break; } }
-  for(let i=1;i<SIZE/2;i++){ if(Math.abs(buf[SIZE-i])<thres){ r2=SIZE-i; break; } }
-  const trimmed = buf.slice(r1,r2);
-  const newSize = trimmed.length;
+  if(yinD.length < tauMax+1){ yinD = new Float32Array(tauMax+1); yinCm = new Float32Array(tauMax+1); }
+  for(let tau=1; tau<=tauMax; tau++){
+    let sum = 0;
+    for(let j=0;j<W;j++){ const df = buf[start+j] - buf[start+j+tau]; sum += df*df; }
+    yinD[tau] = sum;
+  }
+  yinCm[0] = 1;
+  let running = 0;
+  for(let tau=1; tau<=tauMax; tau++){
+    running += yinD[tau];
+    yinCm[tau] = running === 0 ? 1 : yinD[tau]*tau/running;
+  }
 
-  const c = new Array(newSize).fill(0);
-  for(let lag=0; lag<newSize; lag++){
-    for(let i=0; i<newSize-lag; i++){
-      c[lag] += trimmed[i]*trimmed[i+lag];
+  let tauEst = -1;
+  for(let tau=tauMin; tau<=tauMax; tau++){
+    if(yinCm[tau] < YIN_THRESHOLD){
+      while(tau+1 <= tauMax && yinCm[tau+1] < yinCm[tau]) tau++;
+      tauEst = tau; break;
     }
   }
-  let d=0; while(c[d] > c[d+1]) d++;
-  let maxval=-1, maxpos=-1;
-  for(let i=d;i<newSize;i++){
-    if(c[i] > maxval){ maxval=c[i]; maxpos=i; }
+  if(tauEst === -1){
+    // No clean dip (quiet or noisy signal): take the global minimum, then prefer the FIRST
+    // local minimum that is nearly as deep, so noise can't push us an octave too low.
+    let minV = 1e9;
+    for(let tau=tauMin; tau<=tauMax; tau++){ if(yinCm[tau] < minV) minV = yinCm[tau]; }
+    if(minV >= YIN_FALLBACK) return -1;
+    const limit = minV*1.25 + 0.03;
+    for(let tau=Math.max(tauMin,2); tau<tauMax; tau++){
+      if(yinCm[tau] <= limit && yinCm[tau] <= yinCm[tau-1] && yinCm[tau] <= yinCm[tau+1]){ tauEst = tau; break; }
+    }
+    if(tauEst === -1) return -1;
   }
-  let T0 = maxpos;
-  if(T0<=0) return -1;
-  const x1=c[T0-1]||c[T0], x2=c[T0], x3=c[T0+1]||c[T0];
-  const a = (x1 + x3 - 2*x2)/2;
-  const b = (x3 - x1)/2;
-  if(a) T0 = T0 - b/(2*a);
-  return sampleRate/T0;
+  lastPitchClarity = 1 - yinCm[tauEst];
+
+  let better = tauEst;
+  if(tauEst > 1 && tauEst < tauMax){
+    const s0 = yinCm[tauEst-1], s1 = yinCm[tauEst], s2 = yinCm[tauEst+1];
+    const denom = 2*(2*s1 - s2 - s0);
+    if(denom !== 0) better = tauEst + (s2 - s0)/denom;
+  }
+  return sampleRate/better;
+}
+
+// Reuse one buffer for every analysis frame instead of allocating ~60 per second.
+function readPitch(an){
+  if(pitchBuf.length !== an.fftSize) pitchBuf = new Float32Array(an.fftSize);
+  an.getFloatTimeDomainData(pitchBuf);
+  return autoCorrelate(pitchBuf, getCtx().sampleRate);
+}
+
+// 3-reading median: throws away a single stray reading (an octave glitch, a bow-change blip)
+// without adding noticeable lag. Gaps of 3+ silent frames clear the history.
+function makePitchFilter(){
+  let hist = [], miss = 0;
+  return {
+    push(f){
+      if(f === -1){ miss++; if(miss >= 3) hist = []; return -1; }
+      miss = 0;
+      hist.push(f); if(hist.length > 3) hist.shift();
+      if(hist.length < 3) return f;
+      return hist.slice().sort((a,b)=>a-b)[1];
+    },
+    reset(){ hist = []; miss = 0; }
+  };
+}
+
+// Mic -> (software gain) -> analyser. The gain lets quiet microphones clear the silence gate.
+function attachAnalyser(ctx, stream){
+  const source = ctx.createMediaStreamSource(stream);
+  const gain = ctx.createGain();
+  gain.gain.value = MIC_GAIN;
+  const an = ctx.createAnalyser();
+  an.fftSize = 2048;
+  an.smoothingTimeConstant = 0;
+  source.connect(gain);
+  gain.connect(an);
+  return { source, an };
+}
+
+// Simple input-level meter (-60 dB .. -12 dB) so people can SEE whether the mic is hearing them.
+function setLevel(el, rms){
+  if(!el) return;
+  const db = 20*Math.log10(Math.max(rms, 1e-5));
+  const pct = Math.max(0, Math.min(1, (db + 60) / 48));
+  el.style.width = (pct*100).toFixed(0) + '%';
+  el.classList.toggle('hot', pct > 0.92);
 }
 
 let micStream=null, analyser=null, sourceNode=null, rafId=null;
@@ -1105,11 +1189,10 @@ micToggle.addEventListener('click', async ()=>{
 
   try{
     if(ctx.state !== 'running') await ctx.resume();
-    sourceNode = ctx.createMediaStreamSource(micStream);
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0;
-    sourceNode.connect(analyser);
+    const rig = attachAnalyser(ctx, micStream);
+    sourceNode = rig.source; analyser = rig.an;
+    tunerFilter.reset();
+    tunerSilence = 0;
     listening = true;
     micToggle.textContent = 'Stop listening';
     tunerStatus.textContent = 'Listening… play a note';
@@ -1128,21 +1211,25 @@ function stopListening(){
   freqReadout.textContent = '\u00A0';
   centsLabel.textContent = '\u00A0';
   needle.style.transform = 'rotate(0deg)';
-  dialCaption.textContent = 'in tune';
-  dialCaption.style.color = '#8fbf8a';
+  dialCaption.textContent = '\u00A0';
+  setLevel(tunerLevel, 0);
   if(rafId) cancelAnimationFrame(rafId);
   if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
   if(sourceNode){ sourceNode.disconnect(); sourceNode=null; }
 }
 
 const dialCaption = document.getElementById('dialCaption');
+const tunerLevel = document.getElementById('tunerLevel');
+const tunerFilter = makePitchFilter();
+let tunerSilence = 0;
 
 function detectPitchLoop(){
   if(!listening) return;
-  const buf = new Float32Array(analyser.fftSize);
-  analyser.getFloatTimeDomainData(buf);
-  const freq = autoCorrelate(buf, getCtx().sampleRate);
+  const freq = tunerFilter.push(readPitch(analyser));
+  setLevel(tunerLevel, lastPitchRms);
+
   if(freq !== -1 && freq > 60 && freq < 2000){
+    tunerSilence = 0;
     const {name, octave, cents, targetFreq} = freqToNote(freq);
     noteNameEl.textContent = name;
     freqReadout.textContent = `${freq.toFixed(1)} Hz  →  target ${targetFreq.toFixed(1)} Hz`;
@@ -1161,6 +1248,21 @@ function detectPitchLoop(){
       dialCaption.style.color = Math.abs(cents)>35 ? '#c96a52' : '#e8c98a';
     }
     tunerStatus.textContent = 'Listening…';
+  } else {
+    tunerSilence++;
+    if(tunerSilence === 40){          // ~0.7 s with nothing clear: reset the dial so it never shows a stale note
+      noteNameEl.textContent = '—';
+      freqReadout.textContent = '\u00A0';
+      centsLabel.textContent = '\u00A0';
+      needle.style.transform = 'rotate(0deg)';
+      dialCaption.textContent = '\u00A0';
+      tunerStatus.textContent = 'Listening… play a note';
+    }
+    if(tunerSilence === 150){         // ~2.5 s: tell the player what to try
+      tunerStatus.textContent = lastPitchRms < RMS_GATE
+        ? 'Not hearing much — move closer to the microphone or play a little louder'
+        : 'Hearing sound but no clear pitch — try one steady, sustained note';
+    }
   }
   rafId = requestAnimationFrame(detectPitchLoop);
 }
@@ -1263,7 +1365,7 @@ function fcUpdateTarget(){
   verdict.textContent = '\u00A0';
   verdict.className = 'fc-verdict';
   const dc = document.getElementById('fcDialCaption');
-  if(dc){ dc.textContent = 'in tune'; dc.style.color = '#8fbf8a'; }
+  if(dc){ dc.textContent = '\u00A0'; }
 }
 
 document.querySelectorAll('#fcStringRow .fc-pick').forEach(btn=>{
@@ -1314,11 +1416,10 @@ fcMicToggle.addEventListener('click', async ()=>{
 
   try{
     if(ctx.state !== 'running') await ctx.resume();
-    fcSourceNode = ctx.createMediaStreamSource(fcMicStream);
-    fcAnalyser = ctx.createAnalyser();
-    fcAnalyser.fftSize = 1024;
-    fcAnalyser.smoothingTimeConstant = 0;
-    fcSourceNode.connect(fcAnalyser);
+    const rig = attachAnalyser(ctx, fcMicStream);
+    fcSourceNode = rig.source; fcAnalyser = rig.an;
+    fcFilter.reset();
+    fcSilence = 0;
     fcListening = true;
     fcStreak = 0;
     fcMicToggle.textContent = 'Stop listening';
@@ -1339,21 +1440,25 @@ function fcStopListening(){
   fcVerdict.className = 'fc-verdict';
   fcCard.classList.remove('locked');
   fcNeedle.style.transform = 'rotate(0deg)';
-  fcDialCaption.textContent = 'in tune';
-  fcDialCaption.style.color = '#8fbf8a';
+  fcDialCaption.textContent = '\u00A0';
+  setLevel(fcLevel, 0);
   fcStreak = 0;
   if(fcRafId) cancelAnimationFrame(fcRafId);
   if(fcMicStream){ fcMicStream.getTracks().forEach(t=>t.stop()); fcMicStream=null; }
   if(fcSourceNode){ fcSourceNode.disconnect(); fcSourceNode=null; }
 }
 
+const fcLevel = document.getElementById('fcLevel');
+const fcFilter = makePitchFilter();
+let fcSilence = 0;
+
 function fcDetectLoop(){
   if(!fcListening) return;
-  const buf = new Float32Array(fcAnalyser.fftSize);
-  fcAnalyser.getFloatTimeDomainData(buf);
-  const freq = autoCorrelate(buf, getCtx().sampleRate);
+  const freq = fcFilter.push(readPitch(fcAnalyser));
+  setLevel(fcLevel, lastPitchRms);
 
   if(freq !== -1 && freq > 60 && freq < 2000){
+    fcSilence = 0;
     const {name, octave} = freqToNote(freq);
     fcDetected.textContent = `hearing: ${name}${octave} — ${freq.toFixed(1)} Hz`;
     fcStatus.textContent = 'Listening…';
@@ -1385,6 +1490,19 @@ function fcDetectLoop(){
         fcVerdict.className = 'fc-verdict off';
         fcVerdict.textContent = 'Not that pitch — check you\u2019re on the right string and finger';
       }
+    }
+  } else {
+    fcSilence++;
+    if(fcSilence === 40){
+      fcNeedle.style.transform = 'rotate(0deg)';
+      fcDialCaption.textContent = '\u00A0';
+      fcDetected.textContent = '\u00A0';
+      fcStatus.textContent = 'Listening… play the note';
+    }
+    if(fcSilence === 150){
+      fcStatus.textContent = lastPitchRms < RMS_GATE
+        ? 'Not hearing much — move closer to the microphone or play a little louder'
+        : 'Hearing sound but no clear pitch — try one steady, sustained note';
     }
   }
   fcRafId = requestAnimationFrame(fcDetectLoop);
@@ -1658,6 +1776,76 @@ const PIECES = {
   }
 };
 
+
+// Compact notation for new pieces: "A4:1 C#5:2" = note, octave, beats (1 = quarter, 2 = half, 4 = whole).
+function seq(str){
+  return str.trim().split(/\s+/).map(tok=>{
+    const m = /^([A-G]#?)(\d):(\d)$/.exec(tok);
+    if(!m) throw new Error('Bad note token: '+tok);
+    return { n:m[1], o:parseInt(m[2],10), dur:parseInt(m[3],10) };
+  });
+}
+
+// Second practice piece for every week (weeks 2-12). Traditional/public-domain tunes are simplified
+// arrangements; the rest are original studies written for this curriculum.
+Object.assign(PIECES, {
+  crossings: {
+    title:'Open String Crossings',
+    info:'All four open strings — keep the bow level as you cross between strings',
+    notes: seq('A4:1 A4:1 D4:1 D4:1  A4:1 A4:1 E5:1 E5:1  D4:1 D4:1 G3:1 G3:1  D4:1 A4:1 E5:1 A4:1  A4:4')
+  },
+  skips: {
+    title:'Steps and Skips',
+    info:'A string — open, finger 1, finger 2, finger 3, mixing steps and skips',
+    notes: seq('A4:1 B4:1 C#5:2  D5:1 C#5:1 B4:2  A4:1 C#5:1 B4:1 D5:1  C#5:1 B4:1 A4:2')
+  },
+  ode: {
+    title:'Ode to Joy (theme)',
+    info:'A string — open through finger 4 (finger 4 is the E at the top)',
+    notes: seq('C#5:1 C#5:1 D5:1 E5:1  E5:1 D5:1 C#5:1 B4:1  A4:1 A4:1 B4:1 C#5:1  C#5:1 B4:1 B4:2  C#5:1 C#5:1 D5:1 E5:1  E5:1 D5:1 C#5:1 B4:1  A4:1 A4:1 B4:1 C#5:1  B4:1 A4:1 A4:2')
+  },
+  twinkle: {
+    title:'Twinkle, Twinkle, Little Star (first half)',
+    info:'D and A strings — the first half of the tune, in D major',
+    notes: seq('D4:1 D4:1 A4:1 A4:1  B4:1 B4:1 A4:2  G4:1 G4:1 F#4:1 F#4:1  E4:1 E4:1 D4:2')
+  },
+  auclair: {
+    title:'Au Clair de la Lune',
+    info:'G string only — open, finger 1, finger 2',
+    notes: seq('G3:1 G3:1 G3:1 A3:1  B3:2 A3:2  G3:1 B3:1 A3:1 A3:1  G3:4')
+  },
+  oldmac: {
+    title:'Old MacDonald',
+    info:'D and A strings — a tune you know by ear, to read from the page',
+    notes: seq('D4:1 D4:1 D4:1 A4:1  B4:1 B4:1 A4:2  F#4:1 F#4:1 E4:1 E4:1  D4:4')
+  },
+  london: {
+    title:'London Bridge (simplified)',
+    info:'D and A strings — try each phrase once loud, once soft (echo dynamics)',
+    notes: seq('A4:1 B4:1 A4:1 G4:1  F#4:1 G4:1 A4:2  E4:1 F#4:1 G4:2  F#4:1 G4:1 A4:2  A4:1 B4:1 A4:1 G4:1  F#4:1 G4:1 A4:2  E4:1 A4:1 F#4:1 D4:2')
+  },
+  rhythmecho: {
+    title:'Rhythm Echo',
+    info:'A string — steady quarter, half, and whole notes; count out loud',
+    notes: seq('A4:1 A4:1 B4:2  C#5:1 C#5:1 D5:2  D5:1 C#5:1 B4:1 A4:1  B4:2 A4:2  A4:4')
+  },
+  thirds: {
+    title:'D Major Scale in Thirds',
+    info:'D and A strings — the D major scale played in pairs',
+    notes: seq('D4:1 F#4:1 E4:1 G4:1  F#4:1 A4:1 G4:1 B4:1  A4:1 C#5:1 B4:1 D5:1  D5:4')
+  },
+  andante: {
+    title:'Andante in D',
+    info:'D and A strings — a lyrical piece to polish: smooth bows, even tone',
+    notes: seq('D4:1 F#4:1 A4:1 F#4:1  G4:1 B4:1 A4:2  F#4:1 A4:1 D5:1 A4:1  B4:1 G4:1 F#4:2  E4:1 G4:1 F#4:1 E4:1  D4:4')
+  },
+  arpeggio: {
+    title:'D Major Arpeggio Finale',
+    info:'All four strings — the D major chord, from the low D up to the high A and back',
+    notes: seq('D4:1 F#4:1 A4:1 D5:1  F#5:1 A5:1 F#5:1 D5:1  A4:1 F#4:1 D4:2')
+  }
+});
+
 const LESSONS = [
   {
     week:1, title:'Meeting the instrument', est:'Week 1',
@@ -1680,7 +1868,7 @@ const LESSONS = [
     ]
   },
   {
-    week:2, title:'Full bows and steady tone', est:'Week 2', piece:'openwarmup',
+    week:2, title:'Full bows and steady tone', est:'Week 2', pieces:['openwarmup','crossings'],
     goals:[
       'Draw a full, straight bow from frog to tip on every string',
       'Keep a consistent tone without scratching or crunching',
@@ -1699,7 +1887,7 @@ const LESSONS = [
     ]
   },
   {
-    week:3, title:'The first finger pattern', est:'Week 3', piece:'firstpattern',
+    week:3, title:'The first finger pattern', est:'Week 3', pieces:['firstpattern','skips'],
     goals:[
       'Place fingers 1, 2, 3 on the A string in the standard first-position pattern',
       'Play each note with a clear pitch, checked against the tuner',
@@ -1718,7 +1906,7 @@ const LESSONS = [
     ]
   },
   {
-    week:4, title:'Adding the fourth finger', est:'Week 4', piece:'hotcrossbuns',
+    week:4, title:'Adding the fourth finger', est:'Week 4', pieces:['hotcrossbuns','ode'],
     goals:[
       'Add finger 4 to the pattern on the A string',
       'Notice that finger 4 matches the pitch of the next open string',
@@ -1726,18 +1914,18 @@ const LESSONS = [
     ],
     body:[
       'Finger 4 (pinky) completes the pattern: on the A string it lands on D — the same pitch as the open D string. Try alternating between finger 4 on the A string and the open D string; if your intonation is accurate, they should sound identical.',
-      'This week, try playing "Twinkle, Twinkle, Little Star" using just open A, and fingers 1, 2, 3 on the A string — it only uses a few of these notes and is a good first real tune.'
+      'This week, try playing "Hot Cross Buns" using just open A and fingers 1 and 2 on the A string — see the sheet music below, and try the Live Play-Along tool once you\u2019ve got the notes under your fingers.'
     ],
     plan:[
       {min:'10', title:'Warm-up', text:'Open strings, then the finger 1-2-3 pattern from last week.'},
       {min:'15', title:'Finger 4 drill', text:'Add finger 4 to the A string pattern; compare it to the open D string for pitch matching.'},
-      {min:'20', title:'First tune', text:'Work out the opening phrase of "Twinkle, Twinkle, Little Star" by ear or from simple sheet music, slowly.'},
+      {min:'20', title:'First tune', text:'Work out "Hot Cross Buns" from the sheet music below, slowly, checking each note.'},
       {min:'10', title:'Tuner check-in', text:'Tune, then check finger 4 against the open D string.'},
       {min:'5', title:'Play it through', text:'Play whatever you\'ve learned of the tune once, start to finish, without stopping.'}
     ]
   },
   {
-    week:5, title:'The D string pattern', est:'Week 5', piece:'mary',
+    week:5, title:'The D string pattern', est:'Week 5', pieces:['mary','twinkle'],
     goals:[
       'Apply the same finger pattern to the D string',
       'Play a simple melody using both the A and D strings',
@@ -1756,7 +1944,7 @@ const LESSONS = [
     ]
   },
   {
-    week:6, title:'G and E strings — the full pattern', est:'Week 6', piece:'lightlyrow',
+    week:6, title:'G and E strings — the full pattern', est:'Week 6', pieces:['lightlyrow','auclair'],
     goals:[
       'Complete the same finger pattern on the G and E strings',
       'Play a one-octave-range tune using all four strings',
@@ -1775,7 +1963,7 @@ const LESSONS = [
     ]
   },
   {
-    week:7, title:'Reading it on paper', est:'Week 7', piece:'reading',
+    week:7, title:'Reading it on paper', est:'Week 7', pieces:['reading','oldmac'],
     goals:[
       'Connect the notes you\'ve been playing by ear to the staff',
       'Read a simple melody from written notation',
@@ -1794,7 +1982,7 @@ const LESSONS = [
     ]
   },
   {
-    week:8, title:'Bow control — detache and dynamics', est:'Week 8', piece:'dynamics',
+    week:8, title:'Bow control — detache and dynamics', est:'Week 8', pieces:['dynamics','london'],
     goals:[
       'Play clean, separated bow strokes (détaché) at a steady tempo',
       'Control volume with bow speed and weight, not pressure',
@@ -1813,7 +2001,7 @@ const LESSONS = [
     ]
   },
   {
-    week:9, title:'New rhythms', est:'Week 9', piece:'rhythm',
+    week:9, title:'New rhythms', est:'Week 9', pieces:['rhythm','rhythmecho'],
     goals:[
       'Play steady eighth notes and simple dotted rhythms',
       'Keep a consistent tempo without rushing or dragging',
@@ -1832,7 +2020,7 @@ const LESSONS = [
     ]
   },
   {
-    week:10, title:'A first real scale', est:'Week 10', piece:'scale',
+    week:10, title:'A first real scale', est:'Week 10', pieces:['scale','thirds'],
     goals:[
       'Play a one-octave D major scale from memory',
       'Connect the scale to the finger pattern you already know',
@@ -1851,7 +2039,7 @@ const LESSONS = [
     ]
   },
   {
-    week:11, title:'Polishing a piece', est:'Week 11', piece:'etude',
+    week:11, title:'Polishing a piece', est:'Week 11', pieces:['etude','andante'],
     goals:[
       'Choose one tune from the past few weeks to bring up to performance quality',
       'Identify and fix the hardest two or three spots in it',
@@ -1870,7 +2058,7 @@ const LESSONS = [
     ]
   },
   {
-    week:12, title:'Putting it together', est:'Week 12', piece:'recital',
+    week:12, title:'Putting it together', est:'Week 12', pieces:['recital','arpeggio'],
     goals:[
       'Play a short recital piece from memory, start to finish',
       'Tune the violin confidently by ear, checking with the tuner after',
@@ -1957,13 +2145,13 @@ function renderLessonCard(weekNum){
 
       <div class="lesson-body">${l.body.map(p=>`<p>${p}</p>`).join('')}</div>
 
-      ${l.piece && PIECES[l.piece] ? `
+      ${(l.pieces||[]).map((id,i)=> PIECES[id] ? `
       <div class="sheet-box">
-        <h4>This week's piece: ${PIECES[l.piece].title}</h4>
-        <p class="sheet-info">${PIECES[l.piece].info}</p>
-        <div class="sheet-scroll">${buildStaffSVG(PIECES[l.piece].notes, 'w'+l.week)}</div>
-        <p class="sheet-hint">Use the Live Play-Along tool below to practice this with real-time note detection.</p>
-      </div>` : ''}
+        <h4>Practice piece ${i+1} of ${l.pieces.length}: ${PIECES[id].title}</h4>
+        <p class="sheet-info">${PIECES[id].info}</p>
+        <div class="sheet-scroll">${buildStaffSVG(PIECES[id].notes, 'w'+l.week+'p'+i)}</div>
+        <button class="sheet-play" data-piece="${id}">Practice this with Live Play-Along ↓</button>
+      </div>` : '').join('')}
 
       <div class="assignment-box">
         <h4>Daily practice assignment — check off as you complete each part today</h4>
@@ -1984,6 +2172,16 @@ function renderLessonCard(weekNum){
       </div>
     </div>
   `;
+
+  lessonCardEl.querySelectorAll('.sheet-play').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      paStopListening();
+      paCurrentPiece = btn.dataset.piece;
+      paPieceSelect.value = paCurrentPiece;
+      paRenderStaff();
+      document.getElementById('paStaffContainer').scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  });
 
   lessonCardEl.querySelectorAll('.assignment-block').forEach(block=>{
     block.addEventListener('click', ()=>{
@@ -2045,6 +2243,7 @@ function paRenderStaff(){
   paIndex = 0;
   paStreak = 0;
   paWrongStreak = 0;
+  paSameAsPrev = false; paDipSeen = false; paPeakRms = 0;
   paBusy = false;
   paGen++;
 
@@ -2101,6 +2300,7 @@ paResetBtn.addEventListener('click', ()=>{
   paStreak = 0;
   paWrongStreak = 0;
   paSilenceCount = 0;
+  paSameAsPrev = false; paDipSeen = false; paPeakRms = 0;
   paBusy = false;
   paGen++;
   paUpdateHighlight();
@@ -2127,10 +2327,10 @@ paMicToggle.addEventListener('click', async ()=>{
 
   try{
     if(ctx.state !== 'running') await ctx.resume();
-    paSourceNode = ctx.createMediaStreamSource(paMicStream);
-    paAnalyser = ctx.createAnalyser();
-    paAnalyser.fftSize = 1024;
-    paSourceNode.connect(paAnalyser);
+    const rig = attachAnalyser(ctx, paMicStream);
+    paSourceNode = rig.source; paAnalyser = rig.an;
+    paFilter.reset();
+    paSameAsPrev = false; paDipSeen = false; paPeakRms = 0;
     paListening = true;
     paStreak = 0;
     paWrongStreak = 0;
@@ -2153,6 +2353,7 @@ function paStopListening(){
   paStatus.textContent = 'Press "Start listening" and play the first note';
   const cursor = document.getElementById('pa-cursor');
   if(cursor) cursor.setAttribute('opacity','0');
+  setLevel(document.getElementById('paLevel'), 0);
   if(paRafId) cancelAnimationFrame(paRafId);
   if(paMicStream){ paMicStream.getTracks().forEach(t=>t.stop()); paMicStream=null; }
   if(paSourceNode){ paSourceNode.disconnect(); paSourceNode=null; }
@@ -2162,25 +2363,35 @@ const PA_CORRECT_CENTS = 30;   // within this many cents counts as "the right no
 const PA_WRONG_CENTS = 60;     // beyond this many cents counts as "a different note"
 const PA_CORRECT_FRAMES = 6;   // consecutive good frames before confirming correct
 const PA_SILENCE_FRAMES = 10;  // frames of no clear pitch before hiding the cursor
+const PA_DIP_RATIO = 0.5;      // loudness drop (vs. the held note) that counts as a new bow stroke
 
 let paSilenceCount = 0;
+const paFilter = makePitchFilter();
+const paLevel = document.getElementById('paLevel');
+// Repeated-note handling: when the next note has the SAME pitch as the one just played, a
+// single held note must not race through both. We wait for a fresh attack (a silence or a
+// clear dip in loudness) before counting the repeat.
+let paSameAsPrev = false, paDipSeen = false, paPeakRms = 0;
 
 function paDetectLoop(){
   if(!paListening) return;
   const p = PIECES[paCurrentPiece];
   const cursor = document.getElementById('pa-cursor');
 
+  const freq = paFilter.push(readPitch(paAnalyser));
+  setLevel(paLevel, lastPitchRms);
+
   if(paIndex >= p.notes.length){
     paRafId = requestAnimationFrame(paDetectLoop);
     return;
   }
 
-  const buf = new Float32Array(paAnalyser.fftSize);
-  paAnalyser.getFloatTimeDomainData(buf);
-  const freq = autoCorrelate(buf, getCtx().sampleRate);
-
   if(freq !== -1 && freq > 60 && freq < 2000){
     paSilenceCount = 0;
+
+    // Track re-attack evidence since the last confirmed note (runs even during the green flash).
+    if(lastPitchRms > paPeakRms) paPeakRms = lastPitchRms;
+    if(paPeakRms > 0 && lastPitchRms < paPeakRms*PA_DIP_RATIO) paDipSeen = true;
 
     // Live cursor: shows exactly what's being heard right now, positioned
     // on the staff the same way a notated note would be — so you can watch
@@ -2195,13 +2406,17 @@ function paDetectLoop(){
     const target = noteFreq(p.notes[paIndex].n, p.notes[paIndex].o);
     const cents = 1200 * Math.log2(freq / target);
     const abs = Math.abs(cents);
+    const waitingForReattack = paSameAsPrev && !paDipSeen;
 
     if(cursor){
-      cursor.setAttribute('fill', abs <= PA_CORRECT_CENTS ? '#4a7c4e' : (abs >= PA_WRONG_CENTS ? '#a8422e' : '#c98a4e'));
+      cursor.setAttribute('fill', waitingForReattack ? '#c98a4e' : (abs <= PA_CORRECT_CENTS ? '#4a7c4e' : (abs >= PA_WRONG_CENTS ? '#a8422e' : '#c98a4e')));
     }
 
     if(!paBusy){
-      if(abs <= PA_CORRECT_CENTS){
+      if(waitingForReattack){
+        paStreak = 0;
+        paStatus.textContent = 'Same note again — lift or change bow, then play it once more';
+      } else if(abs <= PA_CORRECT_CENTS){
         paStreak++;
         if(paStreak >= PA_CORRECT_FRAMES){
           paBusy = true;
@@ -2209,6 +2424,10 @@ function paDetectLoop(){
           const head = document.getElementById(`pa-head-${paIndex}`);
           if(head) head.classList.add('correct');
           paStatus.textContent = 'Correct!';
+          const cur = p.notes[paIndex], nxt = p.notes[paIndex+1];
+          paSameAsPrev = !!nxt && nxt.n === cur.n && nxt.o === cur.o;
+          paDipSeen = false;
+          paPeakRms = lastPitchRms;
           setTimeout(()=>{
             if(gen !== paGen) return; // piece changed / reset while flashing — ignore
             paIndex++;
@@ -2222,16 +2441,44 @@ function paDetectLoop(){
         }
       } else {
         paStreak = 0;
+        if(paStatus.textContent.startsWith('Same note again')) paStatus.textContent = 'Listening… play the highlighted note';
       }
     }
   } else {
     paSilenceCount++;
+    if(paSilenceCount >= 2) paDipSeen = true;   // the previous note stopped: a new attack is allowed
     if(paSilenceCount >= PA_SILENCE_FRAMES && cursor){
       cursor.setAttribute('opacity', '0');
+    }
+    if(!paBusy && paSilenceCount === 10 && paStatus.textContent.startsWith('Same note again')){
+      paStatus.textContent = 'Listening… play the highlighted note';
+    }
+    if(paSilenceCount === 180 && !paBusy){
+      paStatus.textContent = lastPitchRms < RMS_GATE
+        ? 'Not hearing much — move closer to the microphone or play a little louder'
+        : 'Hearing sound but no clear pitch — try one steady, sustained note';
     }
   }
   paRafId = requestAnimationFrame(paDetectLoop);
 }
+
+// Build the piece picker from the lesson plan: two pieces per week, grouped by week.
+(function buildPieceSelect(){
+  paPieceSelect.innerHTML = '';
+  LESSONS.forEach(l=>{
+    if(!l.pieces) return;
+    const group = document.createElement('optgroup');
+    group.label = `Week ${l.week} — ${l.title}`;
+    l.pieces.forEach(id=>{
+      if(!PIECES[id]) return;
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = PIECES[id].title;
+      group.appendChild(opt);
+    });
+    paPieceSelect.appendChild(group);
+  });
+  paPieceSelect.value = paCurrentPiece;
+})();
 
 paRenderStaff();
 
