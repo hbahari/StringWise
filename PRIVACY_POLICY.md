@@ -1,6 +1,6 @@
 # Privacy Policy — StringWise (Learn Violin)
 
-**Last updated:** [add date when you publish]
+**Last updated:** [2026-10-26]
 
 This policy explains what StringWise does — and does not do — with your data.
 
@@ -42,11 +42,4 @@ updated" date above will change accordingly.
 
 ## Contact
 
-Questions about this policy can be sent to: **[your contact email]**
-
----
-
-*Replace the bracketed placeholders above with your real details before
-publishing this page, then host it somewhere with a public URL (GitHub
-Pages, Netlify, or your own site all work) — Google Play requires a live
-privacy policy URL in your Play Console listing.*
+Questions about this policy can be sent to: **[golemapps1@gmail.com]**
