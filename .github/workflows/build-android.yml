@@ -54,8 +54,17 @@ jobs:
           key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-${{ runner.os }}-
 
+      # python-for-android builds one virtual environment and reuses it for each
+      # CPU type. It upgrades pip inside it the first time, then lays the older
+      # bundled pip back over the top the second time, which leaves a broken mix.
+      # Holding pip at the bundled version keeps the two passes identical.
+      - name: Hold pip at the version bundled with the build's Python
+        run: |
+          echo "pip==25.3" > "$RUNNER_TEMP/pip-constraints.txt"
+          echo "PIP_CONSTRAINT_FILE=$RUNNER_TEMP/pip-constraints.txt" >> "$GITHUB_ENV"
+
       - name: Debug APK (for installing on your own phone)
-        run: buildozer android debug
+        run: PIP_CONSTRAINT="$PIP_CONSTRAINT_FILE" buildozer android debug
 
       - name: Check for the upload key
         id: key
@@ -76,7 +85,7 @@ jobs:
         run: |
           echo "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
           export P4A_RELEASE_KEYSTORE="$RUNNER_TEMP/upload.keystore"
-          buildozer android release
+          PIP_CONSTRAINT="$PIP_CONSTRAINT_FILE" buildozer android release
           rm -f "$RUNNER_TEMP/upload.keystore"
 
       - uses: actions/upload-artifact@v4
