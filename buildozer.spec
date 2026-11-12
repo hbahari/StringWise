@@ -15,7 +15,10 @@ version = 2.0.0
 # higher than any code you have already used for this app.
 android.numeric_version = 5
 
-requirements = python3,kivy==2.3.1,numpy,pyjnius,android
+# charset_normalizer is not used by the app. It is listed so the build tool
+# treats it as an ordinary module; left to itself it picks an Android-only
+# file for it that its own installer then refuses.
+requirements = python3,kivy==2.3.1,numpy,pyjnius,android,charset_normalizer
 
 orientation = portrait
 fullscreen = 0
