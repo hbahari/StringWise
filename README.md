@@ -1,95 +1,92 @@
-# StringWise — Learn Violin
+# StringWise
 
-A self-contained, offline-capable web app for learning violin: a real-time
-tuner, an animated finger-placement guide, music theory, a 12-week lesson
-plan with real sheet music, and a live play-along tool that listens through
-your microphone and follows you note by note.
+A violin tutor for beginners, written in Python with [Kivy](https://kivy.org) and
+packaged for Android with Buildozer.
 
-No installs, no accounts, no ads, no tracking — everything runs in the
-browser, and all audio processing happens locally on your device.
+- **Tuner** that listens through the microphone
+- **Lessons**: a 12-week course planned for an hour of practice a day, with two pieces of sheet music a week
+- **Play-Along**: follows the sheet music as you play and shows the note it hears on the staff
+- **Fingers**: a first-position map with real string spacing, and a live check for any finger
+- **Theory** and a daily **Practice** checklist
 
-## Features
+The app works offline. Its only permission is the microphone, and audio is analysed on the device.
 
-- **Tuner** — real-time pitch detection via the Web Audio API, with a
-  colored arc dial (red/amber/green) and cents-off readout. Reference tones
-  for each open string.
-- **Finger Placement** — an interactive first-position fingerboard diagram,
-  animated hand-form illustrations (left-hand frame and bow hold), and a
-  live checker that listens to confirm whether the note you're actually
-  playing matches the finger and string you picked.
-- **Theory** — a collapsible reference covering staff reading, key
-  signatures, rhythm, bowing vocabulary, dynamics and tempo, left-hand
-  finger numbering, tuning, and ear training.
-- **Lessons** — a 12-week beginner curriculum, one lesson per week, paced
-  for about an hour of practice a day. Every week from Week 2 onward
-  includes real hand-drawn sheet music for that week's piece.
-- **Live Play-Along** — pick any piece from the curriculum and play it
-  through; a live pitch cursor slides up and down the staff in real time,
-  colored by how close you are to the target note, and the piece advances
-  automatically as you get each note right.
-- **Practice** — a daily checklist-based routine with progress saved
-  between sessions.
-- **Installable PWA** — works offline after the first load, and can be
-  added to your phone's home screen like a native app.
-
-## Try it
-
-Once this repo is hosted (see below), just open the URL in a browser —
-Chrome on Android or desktop works best for the microphone features. On
-mobile, use the browser menu to "Add to Home Screen" for a full-screen,
-app-like experience.
-
-## Running it locally
-
-This is a static site — no build step, no dependencies.
-
-```bash
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
-python3 -m http.server 8000
-# then open http://localhost:8000
-```
-
-Note: microphone access requires a secure context. `localhost` counts as
-one, so it works locally, but opening `index.html` directly as a `file://`
-URL will not allow microphone access — always serve it over `http://` (for
-local testing) or `https://` (once deployed).
-
-## Building an Android app
-
-This project is set up as an installable PWA (`manifest.json` +
-`service-worker.js` + icons), which [PWABuilder](https://www.pwabuilder.com)
-can package into a Trusted Web Activity for the Play Store — no Android
-Studio required. See `PUBLISHING_GUIDE.md` in this repo for the full
-walkthrough, from hosting through to a Play Console listing.
-
-## Project structure
+## Project layout
 
 ```
-.
-├── index.html            # the entire app — UI, styles, and logic
-├── manifest.json         # PWA manifest
-├── service-worker.js     # offline caching
-├── icons/                # app icons (192, 512, and maskable)
-├── PUBLISHING_GUIDE.md    # steps to host, package, and publish on Play Store
-└── PRIVACY_POLICY.md      # privacy policy draft (fill in and host before publishing)
+main.py                     entry point
+buildozer.spec              Android build settings
+stringwise/
+  app.py                    title bar, navigation, screen switching
+  theme.py                  colours and fonts
+  storage.py                saved progress (JSON)
+  audio/                    pitch detection (YIN), microphone, reference tones
+  music/                    notes, fingering, the 22 practice pieces
+  logic/                    tuner, finger check and play-along rules (no UI code)
+  content/                  all lesson, theory and practice text
+  ui/                       widgets: dial, sheet music, fingerboard
+  ui/screens/               one file per screen
+  assets/                   fonts, icon, optional photos
+tests/                      pytest suite for audio, music, content and logic
 ```
 
-## Tech
+To change wording, edit the files in `stringwise/content/`. To add a piece, add it to
+`stringwise/music/pieces.py`; the tests check that every bar adds up and every note is reachable.
 
-Plain HTML, CSS, and JavaScript — no frameworks, no build tooling. Pitch
-detection uses autocorrelation on the raw time-domain signal from the Web
-Audio API's `AnalyserNode`. All sheet music is rendered as hand-built SVG,
-not an image or external notation library.
+## Run it on a computer
 
-## Privacy
+```
+pip install -r requirements.txt
+python main.py
+python -m pytest tests
+```
 
-Microphone audio is processed entirely on-device, in memory, for pitch
-detection only. Nothing is recorded, stored, or transmitted anywhere. See
-`PRIVACY_POLICY.md` for the full policy (fill in your details before using
-it as a real published policy).
+No violin to hand? `STRINGWISE_FAKE_MIC="440,494,554" python main.py` feeds the app those
+notes, one a second.
 
-## License
+## Build for Android with GitHub Actions
 
-MIT license 
+1. Push this folder to a GitHub repository.
+2. Open the **Actions** tab, choose **Build Android**, and press **Run workflow**.
+3. When it finishes, download the **stringwise-android** artifact. It contains a debug
+   `.apk` you can install on your phone, and the signed `.aab` for Google Play if the
+   signing secrets below are set.
 
+The first build takes 30 to 40 minutes. Later builds reuse the cached toolchain.
+
+### Signing secrets
+
+Google Play only accepts an update signed with the same upload key as earlier
+releases. That key is the `signing.keystore` file from the PWABuilder download, with its
+alias and passwords in `signing-key-info.txt`.
+
+Add four repository secrets under **Settings > Secrets and variables > Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | the keystore file, base64 encoded (`base64 -w0 signing.keystore`) |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | the key alias |
+| `ANDROID_KEY_PASSWORD` | the key password |
+
+Never commit the keystore itself. `.gitignore` already excludes `*.keystore`.
+
+### Before each upload
+
+In `buildozer.spec`, raise `android.numeric_version` by at least 1 and update `version`.
+The package id, `golemapps.stringwise.app`, must stay as it is.
+
+## Photos of hand positions
+
+The Fingers screen shows photos above each checklist when these files exist in
+`stringwise/assets/photos/`:
+
+- Left hand: `hand-frame-front.jpg`, `hand-frame-side.jpg`, `thumb.jpg`, `place-1234.jpg`
+- Bow hold: `bow-hold-side.jpg`, `bow-hold-top.jpg`, `bow-hold-end.jpg`
+
+Landscape, about 1200 px wide.
+
+## Credits
+
+Headings are set in Crimson Text (SIL Open Font License, see `stringwise/assets/fonts/`).
+Traditional tunes are simplified arrangements; the other studies were written for this course.
