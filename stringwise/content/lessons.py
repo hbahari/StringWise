@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from .timing import TIMING, TimingStudy
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,7 @@ class Lesson:
     body: tuple[str, ...]
     plan: tuple[PlanItem, ...]
     pieces: tuple[str, ...] = ()
+    timing: TimingStudy | None = None
 
     @property
     def total_minutes(self) -> int:
@@ -57,8 +60,8 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Hold check", "Bring the violin up, settle your jaw, drop your shoulders. Use a mirror if you have one."),
-            (15, "Plucked open strings", "Pluck each string four times, slowly. Say its name as you go."),
-            (20, "Bow hold and first strokes", "Set the bow hold with the bow in the air, then play short, slow strokes on D and A."),
+            (10, "Plucked open strings", "Pluck each string four times, slowly. Say its name as you go."),
+            (15, "Bow hold and first strokes", "Set the bow hold with the bow in the air, then play short, slow strokes on D and A."),
             (10, "Tuner", "Open the Tuner tab and check all four strings. Get used to the sound of a string that is in tune."),
             (5, "Rest", "Put the violin down and shake out your hands and shoulders."),
         ),
@@ -86,9 +89,9 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Pluck the open strings, then play a few slow bows to loosen up."),
-            (20, "Whole bows", "Four slow down-bows and up-bows on each string. Count to four on each stroke."),
+            (15, "Whole bows", "Four slow down-bows and up-bows on each string. Count to four on each stroke."),
             (15, "String crossings", "Play Open String Crossings below. Your elbow rises for the lower strings and drops for the higher ones."),
-            (10, "Tuner", "Check all four strings again. New strings drift a lot in the first weeks."),
+            (5, "Tuner", "Check all four strings again. New strings drift a lot in the first weeks."),
             (5, "Listen", "One slow bow on each string. Is the sound the same at the frog, the middle and the tip?"),
         ),
     ),
@@ -116,8 +119,8 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up bows", "Whole bows on all four open strings."),
-            (20, "Finger drill, plucked", "A string. Put finger 1 down, pluck, and check the note with the live checker on the Fingers tab. Add finger 2, then finger 3."),
-            (15, "Same drill with the bow", "One slow bow for each note: open, 1, 2, 3 and back down."),
+            (15, "Finger drill, plucked", "A string. Put finger 1 down, pluck, and check the note with the live checker on the Fingers tab. Add finger 2, then finger 3."),
+            (10, "Same drill with the bow", "One slow bow for each note: open, 1, 2, 3 and back down."),
             (10, "This week's pieces", "Play First Pattern Warm-Up, then Steps and Skips."),
             (5, "Rest", "Shake out your left hand. Sore fingertips are normal this week."),
         ),
@@ -143,8 +146,8 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings, then last week's pattern: open, 1, 2, 3 on the A string."),
-            (15, "Finger 4", "Play finger 3, then finger 4, then the open E string. Adjust finger 4 until it matches the open E."),
-            (20, "Hot Cross Buns", "Learn it one bar at a time from the music below, then join the bars together."),
+            (10, "Finger 4", "Play finger 3, then finger 4, then the open E string. Adjust finger 4 until it matches the open E."),
+            (15, "Hot Cross Buns", "Learn it one bar at a time from the music below, then join the bars together."),
             (10, "Ode to Joy", "Start it once Hot Cross Buns is steady. The first two bars are enough for today."),
             (5, "Play through", "Play one tune from beginning to end without stopping, wrong notes and all."),
         ),
@@ -170,8 +173,8 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings, then the A string pattern from memory."),
-            (15, "D string pattern", "Open, 1, 2, 3, 4 on the D string, checking each note with the live checker. Finger 4 should match the open A."),
-            (20, "Mary Had a Little Lamb", "One bar at a time, then the whole tune."),
+            (10, "D string pattern", "Open, 1, 2, 3, 4 on the D string, checking each note with the live checker. Finger 4 should match the open A."),
+            (15, "Mary Had a Little Lamb", "One bar at a time, then the whole tune."),
             (10, "Twinkle", "Watch the jump from open D to open A at the start. Move the bow to the new string before you play it."),
             (5, "Play through", "One slow run of whichever tune is going better."),
         ),
@@ -197,8 +200,8 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings, then the A and D string patterns."),
-            (15, "G and E patterns", "Open, 1, 2, 3, 4 on the G string, then on the E string. Check each note with the live checker."),
-            (15, "Au Clair de la Lune", "Slow bows. Listen for the D string sounding by accident."),
+            (10, "G and E patterns", "Open, 1, 2, 3, 4 on the G string, then on the E string. Check each note with the live checker."),
+            (10, "Au Clair de la Lune", "Slow bows. Listen for the D string sounding by accident."),
             (15, "Lightly Row", "Play the top E as an open string first. Later, try it with finger 4 on the A string."),
             (5, "Play through", "One tune, start to finish."),
         ),
@@ -224,9 +227,9 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings and the finger pattern on all four strings."),
-            (15, "Staff study", "Read Reading the staff on the Theory tab. Then point to notes in this week's music and name them."),
+            (10, "Staff study", "Read Reading the staff on the Theory tab. Then point to notes in this week's music and name them."),
             (15, "Old MacDonald", "Play it from the page. Keep your eyes on the music and off your fingers."),
-            (15, "Reading Study", "Name the notes, clap the rhythm, then play."),
+            (10, "Reading Study", "Name the notes, clap the rhythm, then play."),
             (5, "Notes to self", "Which notes did you have to stop and work out? Write them down."),
         ),
     ),
@@ -252,9 +255,9 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings. Listen to the moment the bow changes direction and try to make it disappear."),
-            (15, "Détaché", "Play the D string pattern up and down, one bow per note, all the notes the same length."),
+            (10, "Détaché", "Play the D string pattern up and down, one bow per note, all the notes the same length."),
             (15, "Loud and Soft Study", "Play it forte, then piano. Notice what your arm does differently."),
-            (15, "London Bridge", "Play each two-bar phrase forte, then repeat it piano like an echo."),
+            (10, "London Bridge", "Play each two-bar phrase forte, then repeat it piano like an echo."),
             (5, "Wind down", "One slow, quiet bow on each open string."),
         ),
     ),
@@ -275,11 +278,10 @@ LESSONS: tuple[Lesson, ...] = (
             "long note through the 2 and play the eighth on the \"and\".",
             "Clap each rhythm while you count aloud before you pick up the violin. Use short "
             "bows for eighth notes, about half the length you use for a quarter. Most people "
-            "speed up when the notes get shorter, so set a metronome to 60 and stay with it.",
+            "speed up when the notes get shorter, so set the metronome to 60 and stay with it.",
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings and finger patterns."),
-            (10, "Clap and count", "Clap Rhythm Echo while counting aloud. Repeat until it is steady."),
             (20, "Rhythm Echo", "Play it at a slow, even beat. Short bows on the eighth notes."),
             (15, "Long, Long Ago", "The rhythm is long, short, short, over and over. The F♯ is finger 1 on the E string."),
             (5, "Play through", "Play one piece along with a metronome at 60."),
@@ -308,8 +310,8 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Warm-up", "Open strings, then the D and A string patterns."),
-            (20, "D major scale", "One bow per note, up and down. Check F♯ and C♯ with the live checker."),
-            (15, "Slurs", "The same scale, two notes to a bow."),
+            (15, "D major scale", "One bow per note, up and down. Check F♯ and C♯ with the live checker."),
+            (10, "Slurs", "The same scale, two notes to a bow."),
             (10, "Scale in thirds", "Play D Major Scale in Thirds below. Every pair skips one note of the scale."),
             (5, "From memory", "Put the phone down and play the scale up and down once."),
         ),
@@ -336,7 +338,7 @@ LESSONS: tuple[Lesson, ...] = (
         plan=_plan(
             (10, "Warm-up", "Open strings and the D major scale."),
             (10, "Find the hard spots", "Play your piece once and note where it falls apart."),
-            (25, "Spot practice", "Loop each hard spot slowly. Three correct tries in a row, then move on."),
+            (15, "Spot practice", "Loop each hard spot slowly. Three correct tries in a row, then move on."),
             (10, "Run-throughs", "Play the whole piece twice at a speed you can keep up all the way through."),
             (5, "Record", "Record one run-through and listen back. Pick one thing to fix tomorrow."),
         ),
@@ -367,15 +369,34 @@ LESSONS: tuple[Lesson, ...] = (
         ),
         plan=_plan(
             (10, "Tune by ear", "A from the tuner, the other three by ear, then check them."),
-            (15, "Review", "D major scale, then the finger pattern on all four strings."),
-            (20, "Performance", "Play your polished piece from memory, twice. Record the second one."),
+            (10, "Review", "D major scale, then the finger pattern on all four strings."),
+            (15, "Performance", "Play your polished piece from memory, twice. Record the second one."),
             (10, "This week's pieces", "Recital Piece and D Major Arpeggio. The arpeggio goes up to A on the E string."),
             (5, "Look back", "Play something from week 4. Notice how much easier it has become."),
         ),
     ),
 )
 
+
+
+def _with_timing(lesson: Lesson) -> Lesson:
+    """Attach the week's timing study and slot it into the plan after the warm-up."""
+    study = TIMING[lesson.week]
+    item = PlanItem(10, f"Timing: {study.title}", study.plan_text)
+    return replace(lesson, timing=study, plan=(lesson.plan[0], item, *lesson.plan[1:]))
+
+
+LESSONS = tuple(_with_timing(lesson) for lesson in LESSONS)
 LESSON_BY_WEEK = {lesson.week: lesson for lesson in LESSONS}
+
+
+
+def piece_menu() -> dict[str, str]:
+    """'Week 4: Hot Cross Buns' -> piece id, in course order."""
+    from ..music.pieces import PIECES
+    return {f"Week {lesson.week}: {PIECES[piece_id].title}": piece_id
+            for lesson in LESSONS for piece_id in lesson.pieces}
+
 
 LESSONS_INTRO = ("One lesson a week, planned for an hour of practice a day. "
                  "Take them in order, because each one builds on the last.")

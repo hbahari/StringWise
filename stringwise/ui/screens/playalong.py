@@ -4,16 +4,22 @@ from kivy.metrics import dp, sp
 from kivy.uix.spinner import Spinner, SpinnerOption
 
 from ... import theme
-from ...content.lessons import LESSONS
+from ...content.lessons import piece_menu
 from ...logic.playalong import PlayAlong
 from ...music.pieces import PIECES
 from ...theme import rgba
+from ..metronome_bar import MetronomeBar
 from ..staff import StaffScroller
-from ..widgets import Box, Btn, Meter, Txt, card, row, small, title
+from ..widgets import Box, Btn, Meter, Txt, card, row, small, subtitle, title
 from .base import ListeningScreen
 
 INTRO = ("Choose a piece and start listening. The dot on the staff is the note the app hears "
          "you playing. Land it on the highlighted note and the music moves on.")
+CLICK_HELP = ("Once you can get through the notes, start the metronome and play one beat to "
+              "a click. Play-Along still waits for each right note, so use the click to keep "
+              "yourself honest.")
+HEAR_HELP = ("The tune plays at the metronome's tempo. Change it with the slower and faster "
+             "buttons below.")
 LEGEND = "Green dot: right note. Amber: close. Red: a different note."
 
 
@@ -34,10 +40,7 @@ class PieceOption(SpinnerOption):
 class PlayAlongScreen(ListeningScreen):
     def __init__(self, **kwargs):
         super().__init__(name="playalong", **kwargs)
-        self.labels = {}
-        for lesson in LESSONS:
-            for piece_id in lesson.pieces:
-                self.labels[f"Week {lesson.week}: {PIECES[piece_id].title}"] = piece_id
+        self.labels = piece_menu()
         self.piece_id = next(iter(self.labels.values()))
         self.logic = PlayAlong(PIECES[self.piece_id], self.app.listener.frame_rate)
         self.scroller = None
@@ -66,10 +69,26 @@ class PlayAlongScreen(ListeningScreen):
             self.panel.add_widget(widget)
         self.mic_button = Btn("Start listening", on_release=self.toggle_listening)
         self.panel.add_widget(row(self.mic_button, Btn("Restart", kind="outline", on_release=self.restart)))
-        self.panel.add_widget(Btn("Hear the tune", kind="outline", on_release=self.hear))
+        self.hear_button = Btn("", kind="outline", on_release=self.hear)
+        self.panel.add_widget(self.hear_button)
+        self.panel.add_widget(small(HEAR_HELP))
         self.panel.add_widget(small(LEGEND))
 
+        click = page.add(card(spacing=dp(8)))
+        click.add_widget(subtitle("Play it with a click"))
+        click.add_widget(small(CLICK_HELP))
+        click.add_widget(MetronomeBar(presets=(60, 72, 84)))
+
+        self.app.metronome.watch(self)
+        self.sync()
         self._load_piece(self.piece_id)
+
+    # -- metronome watcher -------------------------------------------------------
+    def sync(self):
+        self.hear_button.set(f"Hear the tune at {self.app.metronome.bpm}")
+
+    def tick(self, _state):
+        pass
 
     def _label_for(self, piece_id):
         return next(label for label, pid in self.labels.items() if pid == piece_id)
@@ -106,8 +125,9 @@ class PlayAlongScreen(ListeningScreen):
 
     def hear(self, *_):
         self.stop_listening()
+        self.app.metronome.stop()
         piece = PIECES[self.piece_id]
-        self.app.tones.play_melody(piece.id, piece.notes)
+        self.app.tones.play_melody(piece.id, piece.notes, 60.0 / self.app.metronome.bpm)
 
     # -- listening ---------------------------------------------------------------
     def listening_started(self):

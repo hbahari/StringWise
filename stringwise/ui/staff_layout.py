@@ -50,12 +50,12 @@ def layout(notes: list[Note] | tuple[Note, ...]) -> StaffLayout:
         fingering = fingering_for(note)
         result.fingers.append(fingering[1] if fingering else None)
 
-        if note.beats == 0.5:
+        if note.beats == 0.5 and not note.is_rest:
             following = notes[i + 1] if i + 1 < len(notes) else None
             on_the_beat = abs(beat - round(beat)) < 1e-9
             if beamed_with_previous:
                 beamed_with_previous = False
-            elif on_the_beat and following is not None and following.beats == 0.5:
+            elif on_the_beat and following is not None and following.beats == 0.5 and not following.is_rest:
                 result.beams.append((i, i + 1))
                 up = (note.staff_step + following.staff_step) / 2 < 4
                 result.stems_up[i] = up

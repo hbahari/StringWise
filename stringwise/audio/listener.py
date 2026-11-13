@@ -36,16 +36,23 @@ class PitchListener:
         self._stop = threading.Event()
         self._frames: deque[Frame] = deque(maxlen=256)
         self.error: str | None = None
+        self._record = False
+        self._chunks: list[np.ndarray] = []
 
     @property
     def running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 
-    def start(self) -> None:
-        """Open the microphone and begin listening. Raises MicError on failure."""
+    def start(self, record: bool = False) -> None:
+        """Open the microphone and begin listening. Raises MicError on failure.
+
+        With ``record`` the raw audio is also kept, for ``take_recording``.
+        """
         if self.running:
             return
         self.error = None
+        self._record = record
+        self._chunks = []
         self._frames.clear()
         mic = self._mic_factory()
         mic.open()
@@ -67,6 +74,11 @@ class PitchListener:
                 pass
         self._frames.clear()
 
+    def take_recording(self) -> np.ndarray:
+        """Everything recorded since ``start(record=True)``. Call after ``stop``."""
+        chunks, self._chunks = self._chunks, []
+        return np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+
     def poll(self) -> list[Frame]:
         frames = []
         while True:
@@ -84,6 +96,8 @@ class PitchListener:
                 chunk = mic.read(HOP)
                 if len(chunk) == 0:
                     continue
+                if self._record:
+                    self._chunks.append(np.array(chunk, dtype=np.float32))
                 chunk = chunk[-FRAME_SIZE:] * MIC_GAIN
                 ring = np.concatenate((ring[len(chunk):], chunk))
                 pending += len(chunk)

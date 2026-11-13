@@ -5,7 +5,7 @@ from __future__ import annotations
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.metrics import dp, sp
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
@@ -14,18 +14,20 @@ from kivy.uix.screenmanager import NoTransition, ScreenManager
 
 from . import theme
 from .audio.listener import PitchListener
+from .audio.metronome import Metronome
 from .audio.tone import TonePlayer
 from .storage import ProgressStore
 from .theme import rgba
 from .ui import platform
 
-TABS = (("tuner", "Tuner"), ("lessons", "Lessons"), ("fingers", "Fingers"),
-        ("theory", "Theory"), ("practice", "Practice"))
+TABS = (("tuner", "Tuner"), ("metronome", "Metro"), ("lessons", "Lessons"),
+        ("fingers", "Fingers"), ("theory", "Theory"), ("practice", "Practice"))
+SUB_SCREENS = {"playalong": "lessons", "take": "lessons"}     # screens opened from a tab
 
 
 class NavButton(ButtonBehavior, Label):
     def __init__(self, text, **kwargs):
-        super().__init__(text=text, font_size=sp(13), bold=True, **kwargs)
+        super().__init__(text=text, font_size=sp(12.5), bold=True, **kwargs)
         self.active = False
         with self.canvas.before:
             self._bar_color = Color(0, 0, 0, 0)
@@ -43,6 +45,34 @@ class NavButton(ButtonBehavior, Label):
         self._bar.size = (self.width - dp(20), dp(3))
 
 
+class NowPlaying(ButtonBehavior, Label):
+    """Shown in the title bar while the metronome runs. Tap it to stop the click."""
+
+    def __init__(self, metronome, **kwargs):
+        super().__init__(font_size=sp(13), bold=True, size_hint=(None, None), size=(dp(150), dp(34)),
+                         pos_hint={"center_y": 0.5}, **kwargs)
+        self.metronome = metronome
+        with self.canvas.before:
+            self._fill_color = Color(*rgba(theme.VARNISH))
+            self._fill = RoundedRectangle(radius=[dp(17)])
+        self.bind(pos=self._redraw, size=self._redraw, on_release=lambda *_: metronome.stop())
+        metronome.watch(self)
+        self.sync()
+
+    def _redraw(self, *_):
+        self._fill.pos, self._fill.size = self.pos, self.size
+
+    def sync(self):
+        running = self.metronome.running
+        self.text = f"Stop click ({self.metronome.bpm})" if running else ""
+        self.color = rgba(theme.PAPER)
+        self.opacity = 1.0 if running else 0.0
+        self.disabled = not running
+
+    def tick(self, _state):
+        pass
+
+
 class Shell(BoxLayout):
     """Title bar on top, the current screen in the middle, tabs at the bottom."""
 
@@ -53,10 +83,13 @@ class Shell(BoxLayout):
             self._backdrop = Rectangle()
         self.bind(pos=self._redraw, size=self._redraw)
 
-        header = Label(text="StringWise", font_name=theme.FONT_HEAD, font_size=sp(23),
-                       color=rgba(theme.CREAM), size_hint_y=None, height=dp(52),
-                       halign="left", valign="middle", padding=(dp(18), 0))
-        header.bind(size=lambda widget, size: setattr(widget, "text_size", size))
+        header = BoxLayout(size_hint_y=None, height=dp(52), padding=(0, 0, dp(12), 0))
+        name = Label(text="StringWise", font_name=theme.FONT_HEAD, font_size=sp(23),
+                     color=rgba(theme.CREAM), halign="left", valign="middle", padding=(dp(18), 0))
+        name.bind(size=lambda widget, size: setattr(widget, "text_size", size))
+        header.add_widget(name)
+        self.now_playing = NowPlaying(app.metronome)
+        header.add_widget(self.now_playing)
         self.add_widget(header)
 
         self.manager = ScreenManager(transition=NoTransition())
@@ -80,7 +113,7 @@ class Shell(BoxLayout):
         self._paper.pos, self._paper.size = self.manager.pos, self.manager.size
 
     def highlight(self, name):
-        tab = "lessons" if name == "playalong" else name
+        tab = SUB_SCREENS.get(name, name)
         for key, button in self.nav_buttons.items():
             button.set_active(key == tab)
 
@@ -92,6 +125,8 @@ class StringWiseApp(App):
     def build(self):
         from .ui.screens.fingers import FingersScreen
         from .ui.screens.lessons import LessonsScreen
+        from .ui.screens.metronome import MetronomeScreen
+        from .ui.screens.take import TakeScreen
         from .ui.screens.playalong import PlayAlongScreen
         from .ui.screens.practice import PracticeScreen
         from .ui.screens.theory import TheoryScreen
@@ -101,10 +136,11 @@ class StringWiseApp(App):
         self.store = ProgressStore(self.user_data_dir)
         self.listener = PitchListener()
         self.tones = TonePlayer(self.user_data_dir)
+        self.metronome = Metronome(self.user_data_dir, output_delay=0.10 if platform.IS_ANDROID else 0.03)
 
         self.shell = Shell(self)
-        for screen_class in (TunerScreen, LessonsScreen, PlayAlongScreen, FingersScreen,
-                             TheoryScreen, PracticeScreen):
+        for screen_class in (TunerScreen, MetronomeScreen, LessonsScreen, PlayAlongScreen,
+                             TakeScreen, FingersScreen, TheoryScreen, PracticeScreen):
             self.shell.manager.add_widget(screen_class())
         self.go_to("tuner")
 
@@ -114,6 +150,8 @@ class StringWiseApp(App):
 
     # -- navigation ----------------------------------------------------------
     def go_to(self, name):
+        if name != self.shell.manager.current:
+            self.tones.stop()        # the metronome is left running on purpose
         self.shell.manager.current = name
         self.shell.highlight(name)
 
@@ -121,9 +159,13 @@ class StringWiseApp(App):
         self.shell.manager.get_screen("playalong").select(piece_id)
         self.go_to("playalong")
 
+    def open_take(self, week):
+        self.shell.manager.get_screen("take").select_week(week)
+        self.go_to("take")
+
     def _on_key(self, _window, key, *_):
-        if key == 27 and self.shell.manager.current == "playalong":    # Android back button
-            self.go_to("lessons")
+        if key == 27 and self.shell.manager.current in SUB_SCREENS:    # Android back button
+            self.go_to(SUB_SCREENS[self.shell.manager.current])
             return True
         return False
 
@@ -138,6 +180,7 @@ class StringWiseApp(App):
             screen.stop_listening()
         self.listener.stop()
         self.tones.stop()
+        self.metronome.stop()
 
     def on_pause(self):
         self._stop_audio()      # give the microphone back when the app is in the background

@@ -103,6 +103,13 @@ SECTIONS: tuple[Section, ...] = (
                   "notes, fit an \"and\" between the numbers: \"1 and 2 and 3 and 4 and\". Clap "
                   "a new rhythm while counting aloud before you play it. Sorting out the rhythm "
                   "first leaves you free to think about the notes."),
+            ("h", "Using a metronome"),
+            ("p", "A metronome clicks a steady beat. Its number is beats a minute, so 60 is one "
+                  "click a second and 120 is two. The app's metronome has its own tab, Metro, "
+                  "and each lesson has a timing study that uses it."),
+            ("p", "Start slower than you think you need. When your note lands exactly on a "
+                  "click, the click seems to disappear. If you can still hear it clearly, you "
+                  "are early or late."),
         ),
     ),
     Section(

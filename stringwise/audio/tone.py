@@ -60,12 +60,17 @@ def synthesize_melody(notes, seconds_per_beat: float = 0.6) -> np.ndarray:
     start = 0.0
     for i, note in enumerate(notes):
         length = note.beats * seconds_per_beat
-        previous = notes[i - 1] if i > 0 else None
+        if note.is_rest:
+            start += length
+            continue
+        previous = notes[i - 1] if i > 0 and not notes[i - 1].is_rest else None
         following = notes[i + 1] if i + 1 < len(notes) else None
         fade_in = REBOW if previous is not None and previous.same_pitch(note) else (
             SLUR if previous is not None else 0.04)
         if following is None:
             fade_out, extra = TAIL, TAIL                     # let the last note die away
+        elif following.is_rest:
+            fade_out, extra = 0.06, 0.0                      # stop cleanly for the rest
         elif following.same_pitch(note):
             fade_out, extra = REBOW, 0.0                     # dip, then a fresh stroke
         else:
@@ -82,12 +87,27 @@ def synthesize_melody(notes, seconds_per_beat: float = 0.6) -> np.ndarray:
     return out
 
 
-def write_wav(path: str, samples: np.ndarray) -> None:
+def synthesize_rhythm_demo(notes, bpm: float, subdivide: bool = False) -> np.ndarray:
+    """A rhythm played over the metronome click, after one bar of clicks to count you in."""
+    from .metronome import BEATS_PER_BAR, render_click_track
+    notes = list(notes)
+    beat = 60.0 / bpm
+    bars = int(np.ceil(sum(n.beats for n in notes) / BEATS_PER_BAR - 1e-9)) + 1
+    clicks = render_click_track(bpm, bars, subdivide=subdivide, sample_rate=SAMPLE_RATE)
+    melody = synthesize_melody(notes, beat)
+    out = np.zeros(max(len(clicks), int(round(BEATS_PER_BAR * beat * SAMPLE_RATE)) + len(melody)))
+    out[:len(clicks)] += clicks
+    offset = int(round(BEATS_PER_BAR * beat * SAMPLE_RATE))
+    out[offset:offset + len(melody)] += 0.8 * melody
+    return out
+
+
+def write_wav(path: str, samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> None:
     pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
     with wave.open(path, "wb") as out:
         out.setnchannels(1)
         out.setsampwidth(2)
-        out.setframerate(SAMPLE_RATE)
+        out.setframerate(sample_rate)
         out.writeframes(pcm.tobytes())
 
 
@@ -106,9 +126,18 @@ class TonePlayer:
         self._play(path)
 
     def play_melody(self, key: str, notes, seconds_per_beat: float = 0.6) -> None:
-        path = os.path.join(self._dir, f"melody2_{key}_{seconds_per_beat:.2f}.wav")
+        path = os.path.join(self._dir, f"melody2_{key}_{seconds_per_beat:.3f}.wav")
         if not os.path.exists(path):
             write_wav(path, synthesize_melody(notes, seconds_per_beat))
+        self._play(path)
+
+    def play_rhythm(self, key: str, notes, bpm: float, subdivide: bool = False) -> None:
+        path = os.path.join(self._dir, f"rhythm_{key}_{int(bpm)}_{int(subdivide)}.wav")
+        if not os.path.exists(path):
+            write_wav(path, synthesize_rhythm_demo(notes, bpm, subdivide))
+        self._play(path)
+
+    def play_file(self, path: str) -> None:
         self._play(path)
 
     def stop(self) -> None:

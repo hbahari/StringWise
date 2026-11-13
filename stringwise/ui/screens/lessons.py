@@ -6,7 +6,10 @@ from kivy.uix.scrollview import ScrollView
 
 from ... import theme
 from ...content.lessons import LESSON_BY_WEEK, LESSONS, LESSONS_INTRO
+from ...content.timing import TIMING_INTRO
 from ...music.pieces import PIECES
+from ...music.rhythms import RHYTHMS
+from ..metronome_bar import MetronomeBar
 from ..staff import StaffScroller
 from ..widgets import (Box, Btn, CheckRow, Chip, Txt, bold, bullets, card, small,
                        subtitle, title)
@@ -96,6 +99,9 @@ class LessonsScreen(PageScreen):
                                  on_release=lambda _b, pid=piece_id: self.app.open_play_along(pid)))
             box.add_widget(panel)
 
+        if lesson.timing is not None:
+            box.add_widget(self._timing_card(lesson.timing))
+
         plan = card(spacing=dp(8))
         plan.add_widget(subtitle("Daily practice plan"))
         plan.add_widget(small("Tick each part off as you finish it."))
@@ -124,6 +130,33 @@ class LessonsScreen(PageScreen):
                                on_release=lambda _b: self._clear(lesson)))
         box.add_widget(actions)
         self._update_actions(lesson)
+
+    def _timing_card(self, study):
+        panel = card(spacing=dp(10))
+        panel.add_widget(small(f"Timing lesson. {TIMING_INTRO}", color=theme.VARNISH_DARK))
+        panel.add_widget(subtitle(study.title))
+        for paragraph in study.body:
+            panel.add_widget(Txt(paragraph))
+        if study.rhythm:
+            rhythm = RHYTHMS[study.rhythm]
+            scroller = StaffScroller(rhythm.notes)
+            scroller.staff.show_fingers = False
+            scroller.staff._draw()
+            panel.add_widget(scroller)
+            tempo = study.tempos[0]
+            panel.add_widget(Btn(f"Hear it at {tempo}", kind="outline",
+                                 on_release=lambda _b: self._hear_rhythm(rhythm, tempo, study.subdivide)))
+        panel.add_widget(bullets(study.steps))
+        panel.add_widget(MetronomeBar(presets=study.tempos, preset_subdivide=study.subdivide,
+                                      preset_gaps=study.gaps, preset_label="Set to {}"))
+        panel.add_widget(small("When it feels steady, record yourself and let the app check your "
+                               "notes and your timing."))
+        panel.add_widget(Btn("Record and check", on_release=lambda _b: self.app.open_take(study.week)))
+        return panel
+
+    def _hear_rhythm(self, rhythm, tempo, subdivide):
+        self.app.metronome.stop()
+        self.app.tones.play_rhythm(rhythm.id, rhythm.notes, tempo, subdivide)
 
     def _update_actions(self, lesson):
         checks = self._checks_for(lesson)

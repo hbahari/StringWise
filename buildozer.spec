@@ -13,7 +13,7 @@ source.exclude_dirs = tests, bin, venv, .venv, .buildozer, .github, .git, __pyca
 version = 2.0.0
 # Play's version code. Raise it by at least 1 for every upload, and keep it
 # higher than any code you have already used for this app.
-android.numeric_version = 6
+android.numeric_version = 7
 
 # charset_normalizer is not used by the app. It is listed so the build tool
 # treats it as an ordinary module; left to itself it picks an Android-only

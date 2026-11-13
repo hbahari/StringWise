@@ -14,14 +14,19 @@ _PITCH_CLASS = {name: i for i, name in enumerate(NOTE_NAMES)}
 # Beats a note may last, in quarter-note beats.
 ALLOWED_BEATS = (0.5, 1.0, 1.5, 2.0, 3.0, 4.0)
 
-_TOKEN = re.compile(r"^([A-G]#?)(\d):(\d+(?:\.\d+)?|\.\d+)$")
+_TOKEN = re.compile(r"^(?:([A-G]#?)(\d)|(R)):(\d+(?:\.\d+)?|\.\d+)$")
+REST = "R"
 
 
 @dataclass(frozen=True)
 class Note:
-    name: str      # "A", "C#", ...
+    name: str      # "A", "C#", ... or "R" for a rest
     octave: int    # scientific pitch octave; A4 = 440 Hz
     beats: float = 1.0
+
+    @property
+    def is_rest(self) -> bool:
+        return self.name == REST
 
     @property
     def midi(self) -> int:
@@ -37,7 +42,7 @@ class Note:
 
         Even numbers sit on a line, odd numbers in a space.
         """
-        return staff_step(self.name, self.octave)
+        return 4 if self.is_rest else staff_step(self.name, self.octave)
 
     @property
     def is_sharp(self) -> bool:
@@ -48,7 +53,7 @@ class Note:
         return f"{pretty(self.name)}{self.octave}"
 
     def same_pitch(self, other: "Note") -> bool:
-        return self.midi == other.midi
+        return not self.is_rest and not other.is_rest and self.midi == other.midi
 
 
 def staff_step(name: str, octave: int) -> int:
@@ -70,7 +75,7 @@ def pretty(name: str) -> str:
 
 
 def parse_sequence(text: str) -> list[Note]:
-    """Parse 'A4:1 C#5:2 B4:.5' into notes. The number after the colon is beats."""
+    """Parse 'A4:1 C#5:2 R:1 B4:.5' into notes. The number after the colon is beats; R is a rest."""
     notes = []
     for token in text.split():
         if token == "|":          # optional bar marks, for readability only
@@ -78,10 +83,13 @@ def parse_sequence(text: str) -> list[Note]:
         match = _TOKEN.match(token)
         if not match:
             raise ValueError(f"Bad note token: {token!r}")
-        beats = float(match.group(3))
+        beats = float(match.group(4))
         if beats not in ALLOWED_BEATS:
             raise ValueError(f"Unsupported note length in {token!r}")
-        notes.append(Note(match.group(1), int(match.group(2)), beats))
+        if match.group(3):
+            notes.append(Note(REST, 0, beats))
+        else:
+            notes.append(Note(match.group(1), int(match.group(2)), beats))
     return notes
 
 

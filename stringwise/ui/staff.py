@@ -44,6 +44,8 @@ class Staff(Widget):
         self.current = None
         self.cursor_step = None
         self.cursor_kind = "close"
+        self.note_colors = {}      # note index -> colour, used when showing a checked take
+        self.top_marks = {}        # note index -> "on_time", "early" or "late"
         self.bind(pos=self._draw)
         self._draw()
 
@@ -53,6 +55,12 @@ class Staff(Widget):
         if state != (self.done, self.current, self.cursor_step, self.cursor_kind):
             self.done, self.current, self.cursor_step, self.cursor_kind = state
             self._draw()
+
+    def set_marks(self, colors=None, marks=None):
+        """Colour individual notes and put a timing mark above each one."""
+        self.note_colors = dict(colors or {})
+        self.top_marks = dict(marks or {})
+        self._draw()
 
     def note_x(self, index: int) -> float:
         """Distance of a note from the left edge of the staff, in pixels."""
@@ -105,8 +113,13 @@ class Staff(Widget):
             stem_ends = {}
             for i, note in enumerate(self.notes):
                 color = rgba(theme.GOOD) if i < self.done else ink
+                if i in self.note_colors:
+                    color = rgba(self.note_colors[i])
                 cx, step = X(lay.xs[i]), note.staff_step
                 cy = Y(step)
+                if note.is_rest:
+                    self._rest(cx, Y(4), Y(6), note.beats, u, ink)
+                    continue
 
                 Color(*line_color)
                 for ledger in ledger_steps(step):
@@ -136,8 +149,11 @@ class Staff(Widget):
                     Color(*color)
                     Ellipse(pos=(cx + 10 * u, dot_y - 1.8 * u), size=(3.6 * u, 3.6 * u))
 
+                mark = self.top_marks.get(i)
+                if mark:
+                    self._timing_mark(cx, oy + sl.FINGER_ROW_Y * u, mark, u)
                 finger = lay.fingers[i]
-                if self.show_fingers and finger is not None:
+                if self.show_fingers and not self.top_marks and finger is not None:
                     draw_text(str(finger), cx, oy + sl.FINGER_ROW_Y * u, 11.5 * u,
                               theme.INK_SOFT if finger == 0 else theme.FINGER_COLORS[finger], is_bold=True)
 
@@ -145,7 +161,8 @@ class Staff(Widget):
             for first, second in lay.beams:
                 (x1, e1, up), (x2, e2, _) = stem_ends[first], stem_ends[second]
                 level = max(e1, e2) if up else min(e1, e2)
-                Color(*(rgba(theme.GOOD) if second < self.done else ink))
+                Color(*(rgba(self.note_colors[second]) if second in self.note_colors
+                        else rgba(theme.GOOD) if second < self.done else ink))
                 for sx, cy_note in ((x1, Y(self.notes[first].staff_step)), (x2, Y(self.notes[second].staff_step))):
                     Line(points=[sx, cy_note, sx, level], width=0.8 * u, cap="none")
                 thickness = 4.6 * u
@@ -162,6 +179,34 @@ class Staff(Widget):
                 Ellipse(pos=(cx - 7 * u, cy - 7 * u), size=(14 * u, 14 * u))
                 Color(*rgba(theme.PAPER, 0.9))
                 Line(circle=(cx, cy, 7 * u), width=1)
+
+    @staticmethod
+    def _timing_mark(cx, cy, mark, u):
+        """A dot for on the beat; an arrow pointing left for early, right for late."""
+        if mark == "on_time":
+            Color(*rgba(theme.GOOD))
+            Ellipse(pos=(cx - 3 * u, cy - 3 * u), size=(6 * u, 6 * u))
+            return
+        d = -1 if mark == "early" else 1
+        Color(*rgba(theme.BAD))
+        Line(points=[cx - d * 6 * u, cy, cx + d * 5 * u, cy], width=1.3 * u, cap="round")
+        Line(points=[cx + d * 1 * u, cy + 4 * u, cx + d * 6 * u, cy, cx + d * 1 * u, cy - 4 * u],
+             width=1.3 * u, cap="round", joint="round")
+
+    @staticmethod
+    def _rest(cx, middle, upper, beats, u, color):
+        """Whole rest hangs from the fourth line, half rest sits on the middle line."""
+        Color(*color)
+        if beats >= 4:
+            Rectangle(pos=(cx - 7 * u, upper - 5.5 * u), size=(14 * u, 5.5 * u))
+        elif beats >= 2:
+            Rectangle(pos=(cx - 7 * u, middle), size=(14 * u, 5.5 * u))
+        else:
+            Line(points=[cx - 3 * u, middle + 16 * u, cx + 3.5 * u, middle + 7 * u,
+                         cx - 3 * u, middle - 1 * u, cx + 3 * u, middle - 8 * u],
+                 width=1.5 * u, joint="round", cap="round")
+            Line(bezier=[cx + 3 * u, middle - 8 * u, cx - 8 * u, middle - 4 * u,
+                         cx - 7 * u, middle - 15 * u, cx + 1 * u, middle - 17 * u], width=1.2 * u)
 
     def _head(self, cx, cy, rx, ry, color, hollow, whole):
         PushMatrix()

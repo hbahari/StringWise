@@ -52,6 +52,8 @@ def fingering_for(note: Note) -> tuple[str, int] | None:
     Open strings win over a fourth finger on the string below, which is how
     first tunes are normally fingered.
     """
+    if note.is_rest:
+        return None
     best = None
     for string in STRINGS:
         for finger, candidate in enumerate(string.notes):
