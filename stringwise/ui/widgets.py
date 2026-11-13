@@ -60,6 +60,45 @@ def title(text, color=theme.INK):
     return Txt(text, size=theme.TEXT_TITLE, font=theme.FONT_HEAD, color=color)
 
 
+def title_with_help(text, help_heading, help_items):
+    """A page title with a Help button on the right that opens a pop-up."""
+    line = BoxLayout(orientation="horizontal", size_hint_y=None, spacing=dp(10))
+    heading = title(text)
+    heading.bind(height=lambda _w, h: setattr(line, "height", max(h, dp(38))))
+    button = Btn("Help", kind="outline", size_hint=(None, None), size=(dp(78), dp(36)),
+                 pos_hint={"center_y": 0.5},
+                 on_release=lambda _b: show_help(help_heading, help_items))
+    line.add_widget(heading)
+    line.add_widget(button)
+    return line
+
+
+def show_help(heading, items):
+    """Open a pop-up with a heading, a list of points and a Close button."""
+    from kivy.core.window import Window
+    from kivy.uix.modalview import ModalView
+
+    view = ModalView(size_hint=(0.9, None), background="", background_color=(0, 0, 0, 0),
+                     overlay_color=(0, 0, 0, 0.55))
+    panel = Box(bg=theme.PAPER, border=theme.PAPER_LINE, padding=dp(18), spacing=dp(12))
+    panel.add_widget(subtitle(heading))
+    scroller = ScrollView(do_scroll_x=False, size_hint_y=None, bar_width=dp(3))
+    listing = bullets(items)
+    scroller.add_widget(listing)
+    panel.add_widget(scroller)
+    panel.add_widget(Btn("Close", on_release=lambda _b: view.dismiss()))
+
+    def fit(*_):
+        scroller.height = min(listing.height, Window.height * 0.82 - dp(150))
+        view.height = panel.height
+
+    listing.bind(height=fit)
+    panel.bind(height=fit)
+    view.add_widget(panel)
+    view.open()
+    return view
+
+
 def subtitle(text, color=theme.INK):
     return Txt(text, size=theme.TEXT_SUBTITLE, font=theme.FONT_HEAD, color=color)
 

@@ -125,11 +125,30 @@ class TonePlayer:
             write_wav(path, synthesize(freq, duration))
         self._play(path)
 
-    def play_melody(self, key: str, notes, seconds_per_beat: float = 0.6) -> None:
+    def play_melody(self, key: str, notes, seconds_per_beat: float = 0.6, wait=None) -> None:
+        """Play a piece. ``wait`` is an optional function returning how many seconds to
+        hold back before starting; it is asked once the sound is loaded and ready,
+        so the start can be lined up with something else, such as the metronome."""
         path = os.path.join(self._dir, f"melody2_{key}_{seconds_per_beat:.3f}.wav")
         if not os.path.exists(path):
             write_wav(path, synthesize_melody(notes, seconds_per_beat))
-        self._play(path)
+        from kivy.clock import Clock
+        from kivy.core.audio import SoundLoader
+        self.stop()
+        sound = SoundLoader.load(path)
+        if sound is None:
+            return
+        self._current = sound
+        delay = wait() if wait else 0.0
+        if delay <= 0:
+            sound.play()
+            return
+
+        def begin(_dt):
+            if self._current is sound:        # not cancelled in the meantime
+                sound.play()
+
+        Clock.schedule_once(begin, delay)
 
     def play_rhythm(self, key: str, notes, bpm: float, subdivide: bool = False) -> None:
         path = os.path.join(self._dir, f"rhythm_{key}_{int(bpm)}_{int(subdivide)}.wav")

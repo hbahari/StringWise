@@ -7,7 +7,7 @@ from ...content import tuner as text
 from ...logic.tuner import Tuner
 from ...music.fingering import STRINGS
 from ..dial import Dial
-from ..widgets import Btn, Chip, Meter, Txt, row, small, title, wood_card
+from ..widgets import Btn, Chip, Meter, Txt, row, title_with_help, wood_card
 from .base import ListeningScreen
 
 ADVICE_COLORS = {"in_tune": theme.GOOD_LIGHT, "near": theme.WARN_LIGHT, "far": theme.WARN_LIGHT}
@@ -20,8 +20,7 @@ class TunerScreen(ListeningScreen):
         self.reference = STRINGS[2]            # the A string
 
         page = self.page
-        page.add(title("Tuner"))
-        page.add(Txt(text.INTRO, color=theme.INK_SOFT))
+        page.add(title_with_help("Tuner", text.HELP_TITLE, text.HELP))
 
         panel = page.add(wood_card(spacing=dp(8)))
         self.status = Txt("", size=13, color=theme.ON_WOOD_SOFT, halign="center")
@@ -50,10 +49,6 @@ class TunerScreen(ListeningScreen):
             self.chips[string.name] = chip
             chip_row.add_widget(chip)
         panel.add_widget(chip_row)
-
-        for paragraph in text.HELP:
-            page.add(small(paragraph))
-        page.add(small(text.FOOTER, color=theme.VARNISH_DARK))
 
         self.choose_string(self.reference, play=False)
         self.refresh()

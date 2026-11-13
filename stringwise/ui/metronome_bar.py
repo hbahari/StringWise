@@ -14,11 +14,19 @@ from .widgets import Box, Btn, Chip, Txt, row, small
 
 
 class BeatDots(Widget):
-    """Four dots, one per beat. The current beat lights up; beat 1 is larger."""
+    """Four dots, one per beat. The current one swells on the click and settles
+    back before the next. Beat 1 is larger. In a silent drop-out bar the moving
+    dot is hollow."""
 
-    def __init__(self, **kwargs):
-        super().__init__(size_hint_y=None, height=dp(26), **kwargs)
+    def __init__(self, dark=False, gap=30, size=7.0, **kwargs):
+        kwargs.setdefault("size_hint_y", None)
+        kwargs.setdefault("height", dp(30))
+        super().__init__(**kwargs)
         self.state = None
+        self._gap, self._size = dp(gap), dp(size)
+        self._idle = theme.ON_WOOD_SOFT if dark else theme.INK_SOFT
+        self._live = theme.CREAM if dark else theme.VARNISH
+        self._first = theme.WARN_LIGHT if dark else theme.VARNISH_DARK
         self.bind(pos=self._draw, size=self._draw)
 
     def show(self, state):
@@ -28,21 +36,29 @@ class BeatDots(Widget):
 
     def _draw(self, *_):
         self.canvas.clear()
-        beat, silent = self.state[:2] if self.state else (None, False)
-        gap = dp(30)
-        left = self.x + self.width / 2 - gap * (BEATS_PER_BAR - 1) / 2
+        beat, silent, phase = (self.state[0], self.state[1], self.state[3]) if self.state else (None, False, 0.0)
+        left = self.x + self.width / 2 - self._gap * (BEATS_PER_BAR - 1) / 2
         cy = self.y + self.height / 2
         with self.canvas:
             for i in range(BEATS_PER_BAR):
-                radius = dp(9 if i == 0 else 7)
-                cx = left + i * gap
-                if i == beat:
-                    # solid in a clicking bar, pale in a silent drop-out bar
-                    Color(*rgba(theme.VARNISH, 0.35 if silent else 1.0))
+                base = self._size * (1.25 if i == 0 else 1.0)
+                cx = left + i * self._gap
+                if i != beat:
+                    Color(*rgba(self._idle, 0.38))
+                    radius = base * 0.62
                     Ellipse(pos=(cx - radius, cy - radius), size=(radius * 2, radius * 2))
+                    continue
+                radius = base * (1.3 - 0.45 * min(1.0, phase * 1.6))      # swell, then settle
+                color = self._first if i == 0 else self._live
+                if silent:
+                    Color(*rgba(color, 0.8))
+                    Line(circle=(cx, cy, radius), width=dp(1.4))
                 else:
-                    Color(*rgba(theme.INK_SOFT, 0.45))
-                    Line(circle=(cx, cy, radius), width=dp(1.1))
+                    Color(*rgba(color, 0.22))
+                    halo = radius * 1.45
+                    Ellipse(pos=(cx - halo, cy - halo), size=(halo * 2, halo * 2))
+                    Color(*rgba(color))
+                    Ellipse(pos=(cx - radius, cy - radius), size=(radius * 2, radius * 2))
 
 
 class MetronomeBar(Box):
@@ -121,7 +137,7 @@ class MetronomeBar(Box):
         if state is None or not self.metronome.gaps:
             self._caption("beats a minute")
         else:
-            _beat, silent, bar = state
+            _beat, silent, bar, _phase = state
             self._caption(f"silent bar {bar - 1} of 2. Keep the beat going." if silent
                           else f"click bar {bar + 1} of 2. Two silent bars follow.")
 

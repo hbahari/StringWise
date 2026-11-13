@@ -121,3 +121,16 @@ def test_rhythm_demo_has_a_count_in_bar():
     assert np.max(np.abs(demo)) <= 1.0
     count_in = demo[int(0.2 * SAMPLE_RATE):int(0.9 * SAMPLE_RATE)]   # between clicks 1 and 2
     assert float(np.max(np.abs(count_in))) < 1e-6
+
+
+def test_next_bar_wait_lines_up_with_beat_one(tmp_path, monkeypatch):
+    import time
+    from stringwise.audio.metronome import Metronome
+    metronome = Metronome(str(tmp_path))
+    assert metronome.seconds_to_next_bar() == 0.0            # not running: start at once
+    metronome.bpm, metronome.running, metronome._length = 60, True, 120.0
+    metronome._started = 100.0
+    monkeypatch.setattr(time, "monotonic", lambda: 101.5)    # 1.5 s into a 4 s bar
+    assert metronome.seconds_to_next_bar() == pytest.approx(2.5)
+    monkeypatch.setattr(time, "monotonic", lambda: 103.95)   # too close: wait for the bar after
+    assert metronome.seconds_to_next_bar() == pytest.approx(4.05)

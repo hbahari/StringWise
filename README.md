@@ -88,6 +88,11 @@ The Fingers screen shows photos above each checklist when these files exist in
 
 Landscape, about 1200 px wide.
 
+## Testing feedback
+
+`docs/TESTING_FEEDBACK.md` is a running, plain-language log of feedback since version 1.0.0
+and the change made for each item.
+
 ## Credits
 
 Headings are set in Crimson Text (SIL Open Font License, see `stringwise/assets/fonts/`).

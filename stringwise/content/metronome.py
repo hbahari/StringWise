@@ -1,10 +1,11 @@
 """Text for the Metronome tab and the Record and Check screen."""
 
-INTRO = ("A steady click to play along with. It keeps going when you switch tabs, so you can "
-         "use it with any lesson or with your own music.")
-
-HOW_TITLE = "What the controls do"
+HOW_TITLE = "Using the metronome"
 HOW = (
+    "The metronome gives a steady click to play along with. It keeps going when you switch "
+    "tabs, so you can use it with any lesson or with your own music.",
+    "Once it has been started, a Pause button and four beat dots stay at the top of every "
+    "screen. Press Pause to stop the click and Resume to carry on at the same tempo.",
     "The number is beats a minute. 60 is one click a second.",
     "The louder click is beat 1 of each bar of four.",
     "Eighth notes adds a quiet click halfway between the beats, for counting \"1 and 2 and\".",

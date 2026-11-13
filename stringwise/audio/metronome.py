@@ -100,6 +100,7 @@ class Metronome:
         self.subdivide = False
         self.gaps = False
         self.running = False
+        self.used = False            # True once it has been started; the title bar then keeps its control
         self._sound = None
         self._started = 0.0
         self._length = 0.0
@@ -153,6 +154,7 @@ class Metronome:
         from kivy.clock import Clock
         self._play()
         self.running = True
+        self.used = True
         if self._tick_event is None:
             self._tick_event = Clock.schedule_interval(self._tick, 1 / 30)
         self._notify()
@@ -169,9 +171,9 @@ class Metronome:
         if was_running:
             self._notify()
 
-    def beat_state(self) -> tuple[int, bool, int] | None:
+    def beat_state(self) -> tuple[int, bool, int, float] | None:
         """(beat 0..3, whether this bar is a silent drop-out bar, bar 0..3 in the
-        four-bar cycle), or None when stopped."""
+        four-bar cycle, how far through the beat 0..1), or None when stopped."""
         if not self.running or self._length <= 0:
             return None
         elapsed = (time.monotonic() - self._started - self._output_delay) % self._length
@@ -180,7 +182,17 @@ class Metronome:
         beats = elapsed / (60.0 / self.bpm)
         bar = int(beats // BEATS_PER_BAR)
         cycle_bar = bar % len(GAP_CYCLE)
-        return int(beats) % BEATS_PER_BAR, self.gaps and GAP_CYCLE[cycle_bar], cycle_bar
+        return (int(beats) % BEATS_PER_BAR, self.gaps and GAP_CYCLE[cycle_bar], cycle_bar,
+                beats - int(beats))
+
+    def seconds_to_next_bar(self, at_least: float = 0.15) -> float:
+        """How long until the next beat 1, so another sound can start in step with the click."""
+        if not self.running or self._length <= 0:
+            return 0.0
+        bar = BEATS_PER_BAR * 60.0 / self.bpm
+        into_bar = (time.monotonic() - self._started) % bar
+        wait = bar - into_bar
+        return wait if wait >= at_least else wait + bar
 
     def write_take_track(self, bpm: float, bars: int, subdivide: bool = False) -> tuple[str, float]:
         """A one-off click track for a recorded take. Returns (file path, length in seconds)."""

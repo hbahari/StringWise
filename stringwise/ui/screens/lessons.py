@@ -9,9 +9,8 @@ from ...content.lessons import LESSON_BY_WEEK, LESSONS, LESSONS_INTRO
 from ...content.timing import TIMING_INTRO
 from ...music.pieces import PIECES
 from ...music.rhythms import RHYTHMS
-from ..metronome_bar import MetronomeBar
 from ..staff import StaffScroller
-from ..widgets import (Box, Btn, CheckRow, Chip, Txt, bold, bullets, card, small,
+from ..widgets import (Box, Btn, CheckRow, Chip, Txt, bold, bullets, card, row, small,
                        subtitle, title)
 from .base import PageScreen
 
@@ -147,12 +146,21 @@ class LessonsScreen(PageScreen):
             panel.add_widget(Btn(f"Hear it at {tempo}", kind="outline",
                                  on_release=lambda _b: self._hear_rhythm(rhythm, tempo, study.subdivide)))
         panel.add_widget(bullets(study.steps))
-        panel.add_widget(MetronomeBar(presets=study.tempos, preset_subdivide=study.subdivide,
-                                      preset_gaps=study.gaps, preset_label="Set to {}"))
-        panel.add_widget(small("When it feels steady, record yourself and let the app check your "
-                               "notes and your timing."))
+        label = "Start metronome at {}" if len(study.tempos) == 1 else "Start at {}"
+        starters = row(height=48, spacing=8)
+        for tempo in study.tempos:
+            starters.add_widget(Btn(label.format(tempo), kind="outline",
+                                    on_release=lambda _b, tempo=tempo: self._start_metronome(study, tempo)))
+        panel.add_widget(starters)
         panel.add_widget(Btn("Record and check", on_release=lambda _b: self.app.open_take(study.week)))
         return panel
+
+    def _start_metronome(self, study, tempo):
+        """Set the metronome up for this study and start it. It is paused from the title bar."""
+        self.app.tones.stop()
+        self.app.metronome.configure(bpm=tempo, subdivide=study.subdivide, gaps=study.gaps)
+        if not self.app.metronome.running:
+            self.app.metronome.start()
 
     def _hear_rhythm(self, rhythm, tempo, subdivide):
         self.app.metronome.stop()

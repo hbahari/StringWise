@@ -5,7 +5,7 @@ from __future__ import annotations
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.graphics import Color, Line, Rectangle, RoundedRectangle
 from kivy.metrics import dp, sp
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
@@ -45,32 +45,58 @@ class NavButton(ButtonBehavior, Label):
         self._bar.size = (self.width - dp(20), dp(3))
 
 
-class NowPlaying(ButtonBehavior, Label):
-    """Shown in the title bar while the metronome runs. Tap it to stop the click."""
+class HeaderMetronome(BoxLayout):
+    """Beat dots and a pause/resume button in the title bar.
+
+    It appears the first time the metronome is started and then stays, so the
+    click can be paused and picked up again at the same tempo from any tab.
+    """
 
     def __init__(self, metronome, **kwargs):
-        super().__init__(font_size=sp(13), bold=True, size_hint=(None, None), size=(dp(150), dp(34)),
-                         pos_hint={"center_y": 0.5}, **kwargs)
+        super().__init__(orientation="horizontal", size_hint=(None, None), size=(dp(196), dp(36)),
+                         spacing=dp(6), pos_hint={"center_y": 0.5}, **kwargs)
+        from .ui.metronome_bar import BeatDots
         self.metronome = metronome
-        with self.canvas.before:
-            self._fill_color = Color(*rgba(theme.VARNISH))
-            self._fill = RoundedRectangle(radius=[dp(17)])
-        self.bind(pos=self._redraw, size=self._redraw, on_release=lambda *_: metronome.stop())
+        self.dots = BeatDots(dark=True, gap=19, size=5.0, size_hint=(None, 1), width=dp(84))
+        self.button = _HeaderButton(size_hint=(None, 1), width=dp(106))
+        self.button.bind(on_release=lambda *_: metronome.toggle())
+        self.add_widget(self.dots)
+        self.add_widget(self.button)
         metronome.watch(self)
         self.sync()
 
+    def sync(self):
+        metronome = self.metronome
+        self.opacity = 1.0 if metronome.used else 0.0
+        self.disabled = not metronome.used
+        self.button.show(f"{'Pause' if metronome.running else 'Resume'} {metronome.bpm}", metronome.running)
+        if not metronome.running:
+            self.dots.show(None)
+
+    def tick(self, state):
+        self.dots.show(state)
+
+
+class _HeaderButton(ButtonBehavior, Label):
+    def __init__(self, **kwargs):
+        super().__init__(font_size=sp(13), bold=True, **kwargs)
+        with self.canvas.before:
+            self._fill_color = Color(0, 0, 0, 0)
+            self._fill = RoundedRectangle(radius=[dp(18)])
+            self._line_color = Color(0, 0, 0, 0)
+            self._line = Line(width=1.2)
+        self.bind(pos=self._redraw, size=self._redraw)
+
     def _redraw(self, *_):
         self._fill.pos, self._fill.size = self.pos, self.size
+        self._line.rounded_rectangle = (*self.pos, *self.size, dp(18))
 
-    def sync(self):
-        running = self.metronome.running
-        self.text = f"Stop click ({self.metronome.bpm})" if running else ""
-        self.color = rgba(theme.PAPER)
-        self.opacity = 1.0 if running else 0.0
-        self.disabled = not running
-
-    def tick(self, _state):
-        pass
+    def show(self, text, running):
+        self.text = text
+        # Pause is the warm varnish colour; Resume is pale, so the two states are easy to tell apart.
+        self.color = self.disabled_color = rgba(theme.PAPER if running else theme.WOOD)
+        self._fill_color.rgba = rgba(theme.VARNISH if running else theme.CREAM)
+        self._line_color.rgba = (0, 0, 0, 0)
 
 
 class Shell(BoxLayout):
@@ -88,8 +114,8 @@ class Shell(BoxLayout):
                      color=rgba(theme.CREAM), halign="left", valign="middle", padding=(dp(18), 0))
         name.bind(size=lambda widget, size: setattr(widget, "text_size", size))
         header.add_widget(name)
-        self.now_playing = NowPlaying(app.metronome)
-        header.add_widget(self.now_playing)
+        self.header_metronome = HeaderMetronome(app.metronome)
+        header.add_widget(self.header_metronome)
         self.add_widget(header)
 
         self.manager = ScreenManager(transition=NoTransition())
