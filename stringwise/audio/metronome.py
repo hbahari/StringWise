@@ -185,8 +185,30 @@ class Metronome:
         return (int(beats) % BEATS_PER_BAR, self.gaps and GAP_CYCLE[cycle_bar], cycle_bar,
                 beats - int(beats))
 
+    def ensure_running(self, bpm=None, subdivide=None, gaps=None) -> None:
+        """Apply these settings and make sure the click is running, straight away.
+
+        Used by the lessons: a lesson's Hear it button sets the one shared
+        metronome to its tempo, and the click then carries on from the title bar.
+        """
+        before = (self.bpm, self.subdivide, self.gaps)
+        if bpm is not None:
+            self.bpm = clamp_bpm(bpm)
+        if subdivide is not None:
+            self.subdivide = bool(subdivide)
+        if gaps is not None:
+            self.gaps = bool(gaps)
+        changed = (self.bpm, self.subdivide, self.gaps) != before
+        if not self.running:
+            self.start()
+        elif changed or self._restart_event is not None:
+            self._restart_now()
+            self._notify()
+
     def seconds_to_next_bar(self, at_least: float = 0.15) -> float:
         """How long until the next beat 1, so another sound can start in step with the click."""
+        if self.running and self._restart_event is not None:
+            self._restart_now()          # a tempo change was still settling
         if not self.running or self._length <= 0:
             return 0.0
         bar = BEATS_PER_BAR * 60.0 / self.bpm
@@ -214,6 +236,12 @@ class Metronome:
             self._restart_event.cancel()
         self._silence()
         self._restart_event = Clock.schedule_once(self._restart, 0.25)
+
+    def _restart_now(self) -> None:
+        if self._restart_event is not None:
+            self._restart_event.cancel()
+            self._restart_event = None
+        self._play()
 
     def _restart(self, _dt) -> None:
         self._restart_event = None

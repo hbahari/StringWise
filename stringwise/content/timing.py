@@ -34,7 +34,7 @@ TIMING: dict[int, TimingStudy] = {s.week: s for s in (
         steps=(
             "Count aloud with the clicks for four bars before you clap anything.",
             "Clap the rhythm below. A half note is one clap held for two clicks.",
-            "Tap Hear it if you are unsure how it goes.",
+            "Tap Hear it if you are unsure how it goes. It starts the metronome and plays the rhythm with it.",
         ),
         plan_text="Metronome at 60. Count aloud, then clap this week's rhythm until your claps hide the clicks.",
     ),

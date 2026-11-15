@@ -10,7 +10,7 @@ from ...content.timing import TIMING_INTRO
 from ...music.pieces import PIECES
 from ...music.rhythms import RHYTHMS
 from ..staff import StaffScroller
-from ..widgets import (Box, Btn, CheckRow, Chip, Txt, bold, bullets, card, row, small,
+from ..widgets import (Box, Btn, CheckRow, Chip, HearButton, Txt, bold, bullets, card, row, small,
                        subtitle, title)
 from .base import PageScreen
 
@@ -142,9 +142,10 @@ class LessonsScreen(PageScreen):
             scroller.staff.show_fingers = False
             scroller.staff._draw()
             panel.add_widget(scroller)
-            tempo = study.tempos[0]
-            panel.add_widget(Btn(f"Hear it at {tempo}", kind="outline",
-                                 on_release=lambda _b: self._hear_rhythm(rhythm, tempo, study.subdivide)))
+            hear_tempo = study.tempos[0]
+            panel.add_widget(HearButton(
+                lambda: f"Hear it at {hear_tempo}",
+                lambda tag: self._hear_rhythm(study, rhythm, hear_tempo, tag)))
         panel.add_widget(bullets(study.steps))
         label = "Start metronome at {}" if len(study.tempos) == 1 else "Start at {}"
         starters = row(height=48, spacing=8)
@@ -158,13 +159,15 @@ class LessonsScreen(PageScreen):
     def _start_metronome(self, study, tempo):
         """Set the metronome up for this study and start it. It is paused from the title bar."""
         self.app.tones.stop()
-        self.app.metronome.configure(bpm=tempo, subdivide=study.subdivide, gaps=study.gaps)
-        if not self.app.metronome.running:
-            self.app.metronome.start()
+        self.app.metronome.ensure_running(bpm=tempo, subdivide=study.subdivide, gaps=study.gaps)
 
-    def _hear_rhythm(self, rhythm, tempo, subdivide):
-        self.app.metronome.stop()
-        self.app.tones.play_rhythm(rhythm.id, rhythm.notes, tempo, subdivide)
+    def _hear_rhythm(self, study, rhythm, tempo, tag):
+        """Set the shared metronome to this lesson's tempo, keep it running, and bring
+        the rhythm in on the next beat 1."""
+        metronome = self.app.metronome
+        metronome.ensure_running(bpm=tempo, subdivide=study.subdivide, gaps=study.gaps)
+        self.app.tones.play_melody(f"rhythm_{rhythm.id}", rhythm.notes, 60.0 / metronome.bpm,
+                                   wait=metronome.seconds_to_next_bar, tag=tag)
 
     def _update_actions(self, lesson):
         checks = self._checks_for(lesson)

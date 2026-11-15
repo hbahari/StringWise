@@ -9,7 +9,7 @@ from ...logic.playalong import PlayAlong
 from ...music.pieces import PIECES
 from ...theme import rgba
 from ..staff import StaffScroller
-from ..widgets import Box, Btn, Meter, Txt, card, row, small, title
+from ..widgets import Box, Btn, HearButton, Meter, Txt, card, row, small, title
 from .base import ListeningScreen
 
 INTRO = ("Choose a piece and start listening. The dot on the staff is the note the app hears "
@@ -63,11 +63,14 @@ class PlayAlongScreen(ListeningScreen):
             self.panel.add_widget(widget)
         self.mic_button = Btn("Start listening", on_release=self.toggle_listening)
         self.panel.add_widget(row(self.mic_button, Btn("Restart", kind="outline", on_release=self.restart)))
-        self.hear_button = Btn("", kind="outline", on_release=self.hear)
+        self.hear_button = HearButton(lambda: f"Hear the tune at {self.app.metronome.bpm}", self.hear)
         self.panel.add_widget(self.hear_button)
+        self.click_button = Btn("", kind="outline", height=dp(44), size_hint_x=1.5,
+                                on_release=lambda _b: self.app.metronome.toggle())
         self.panel.add_widget(row(
             Btn("\u2212 slower", kind="outline", height=dp(44), on_release=lambda _b: self._nudge(-4)),
             Btn("faster +", kind="outline", height=dp(44), on_release=lambda _b: self._nudge(4)),
+            self.click_button,
             height=44, spacing=8))
         self.panel.add_widget(small(LEGEND))
 
@@ -77,7 +80,8 @@ class PlayAlongScreen(ListeningScreen):
 
     # -- metronome watcher -------------------------------------------------------
     def sync(self):
-        self.hear_button.set(f"Hear the tune at {self.app.metronome.bpm}")
+        self.hear_button.refresh()
+        self.click_button.set("Pause click" if self.app.metronome.running else "Start click")
 
     def tick(self, _state):
         pass
@@ -118,13 +122,13 @@ class PlayAlongScreen(ListeningScreen):
         self._followed = -1
         self.refresh()
 
-    def hear(self, *_):
+    def hear(self, tag=None):
         self.stop_listening()
         piece = PIECES[self.piece_id]
         metronome = self.app.metronome
         # If the click is running, leave it running and bring the tune in on the next beat 1.
         self.app.tones.play_melody(piece.id, piece.notes, 60.0 / metronome.bpm,
-                                   wait=metronome.seconds_to_next_bar)
+                                   wait=metronome.seconds_to_next_bar, tag=tag)
         if metronome.running:
             self.status.set("The tune starts on the next beat 1.")
         else:

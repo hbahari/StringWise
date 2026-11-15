@@ -87,21 +87,6 @@ def synthesize_melody(notes, seconds_per_beat: float = 0.6) -> np.ndarray:
     return out
 
 
-def synthesize_rhythm_demo(notes, bpm: float, subdivide: bool = False) -> np.ndarray:
-    """A rhythm played over the metronome click, after one bar of clicks to count you in."""
-    from .metronome import BEATS_PER_BAR, render_click_track
-    notes = list(notes)
-    beat = 60.0 / bpm
-    bars = int(np.ceil(sum(n.beats for n in notes) / BEATS_PER_BAR - 1e-9)) + 1
-    clicks = render_click_track(bpm, bars, subdivide=subdivide, sample_rate=SAMPLE_RATE)
-    melody = synthesize_melody(notes, beat)
-    out = np.zeros(max(len(clicks), int(round(BEATS_PER_BAR * beat * SAMPLE_RATE)) + len(melody)))
-    out[:len(clicks)] += clicks
-    offset = int(round(BEATS_PER_BAR * beat * SAMPLE_RATE))
-    out[offset:offset + len(melody)] += 0.8 * melody
-    return out
-
-
 def write_wav(path: str, samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> None:
     pcm = (np.clip(samples, -1.0, 1.0) * 32767).astype("<i2")
     with wave.open(path, "wb") as out:
@@ -112,23 +97,59 @@ def write_wav(path: str, samples: np.ndarray, sample_rate: int = SAMPLE_RATE) ->
 
 
 class TonePlayer:
-    """Plays tones through Kivy's sound loader, caching the WAV files on disk."""
+    """Plays tones through Kivy's sound loader, caching the WAV files on disk.
+
+    A playback can carry a ``tag`` saying which button started it. Buttons
+    register with ``watch`` and are told to refresh a few times a second, so
+    each one can show Stop while its own sound is playing.
+    """
 
     def __init__(self, cache_dir: str) -> None:
         self._dir = os.path.join(cache_dir, "tones")
         os.makedirs(self._dir, exist_ok=True)
         self._current = None
+        self._tag = None
+        self._pending = False        # loaded and waiting for its moment to start
+        self._watchers = []
+        self._poll_event = None
 
+    # -- what is playing ---------------------------------------------------
+    @property
+    def playing(self) -> bool:
+        return self._current is not None and (self._pending or self._current.state == "play")
+
+    @property
+    def active_tag(self):
+        """The tag of the sound that is playing or about to start, else None."""
+        return self._tag if self.playing else None
+
+    def watch(self, widget) -> None:
+        import weakref
+        from kivy.clock import Clock
+        self._watchers.append(weakref.ref(widget))
+        if self._poll_event is None:
+            self._poll_event = Clock.schedule_interval(self._notify, 0.15)
+
+    def _notify(self, *_):
+        alive = []
+        for ref in self._watchers:
+            widget = ref()
+            if widget is not None:
+                alive.append(ref)
+                widget.refresh()
+        self._watchers = alive
+
+    # -- playing -----------------------------------------------------------
     def play_tone(self, freq: float, duration: float = 1.1) -> None:
         path = os.path.join(self._dir, f"tone_{freq:.2f}_{duration:.2f}.wav")
         if not os.path.exists(path):
             write_wav(path, synthesize(freq, duration))
         self._play(path)
 
-    def play_melody(self, key: str, notes, seconds_per_beat: float = 0.6, wait=None) -> None:
-        """Play a piece. ``wait`` is an optional function returning how many seconds to
-        hold back before starting; it is asked once the sound is loaded and ready,
-        so the start can be lined up with something else, such as the metronome."""
+    def play_melody(self, key: str, notes, seconds_per_beat: float = 0.6, wait=None, tag=None) -> None:
+        """Play a piece or a rhythm. ``wait`` is an optional function returning how many
+        seconds to hold back before starting; it is asked once the sound is loaded
+        and ready, so the start can be lined up with the metronome."""
         path = os.path.join(self._dir, f"melody2_{key}_{seconds_per_beat:.3f}.wav")
         if not os.path.exists(path):
             write_wav(path, synthesize_melody(notes, seconds_per_beat))
@@ -138,38 +159,33 @@ class TonePlayer:
         sound = SoundLoader.load(path)
         if sound is None:
             return
-        self._current = sound
+        self._current, self._tag = sound, tag
         delay = wait() if wait else 0.0
         if delay <= 0:
             sound.play()
-            return
+        else:
+            self._pending = True
 
-        def begin(_dt):
-            if self._current is sound:        # not cancelled in the meantime
-                sound.play()
+            def begin(_dt):
+                if self._current is sound:        # not stopped in the meantime
+                    self._pending = False
+                    sound.play()
 
-        Clock.schedule_once(begin, delay)
-
-    def play_rhythm(self, key: str, notes, bpm: float, subdivide: bool = False) -> None:
-        path = os.path.join(self._dir, f"rhythm_{key}_{int(bpm)}_{int(subdivide)}.wav")
-        if not os.path.exists(path):
-            write_wav(path, synthesize_rhythm_demo(notes, bpm, subdivide))
-        self._play(path)
+            Clock.schedule_once(begin, delay)
+        self._notify()
 
     def play_file(self, path: str) -> None:
         self._play(path)
 
     def stop(self) -> None:
-        if self._current is not None:
+        sound, self._current = self._current, None
+        self._tag, self._pending = None, False
+        if sound is not None:
             try:
-                self._current.stop()
+                sound.stop()
             except Exception:
                 pass
-            self._current = None
-
-    @property
-    def playing(self) -> bool:
-        return self._current is not None and self._current.state == "play"
+            self._notify()
 
     def _play(self, path: str) -> None:
         from kivy.core.audio import SoundLoader

@@ -46,6 +46,16 @@ Keeping the two apart matters when answering Google's questions about tester fee
 | The four beat dots were plain. | Device testing | The current beat now swells on the click and settles back, beat 1 is larger, and the dots sit next to the Pause button so they are visible on every tab. |
 | Pressing "Hear the tune" in Play-Along switched the metronome off. | Device testing | The metronome now keeps going. If it is running, the tune waits and comes in on the next beat 1, so it lines up with the click. |
 | The Resume button at the top was hard to see against the dark bar. | Device testing | Resume is now a pale button with dark text. Pause keeps its warm colour, so the two are easy to tell apart. |
+| Once a tune or rhythm started playing there was no way to stop it or start it again from the top. | Device testing | Every "Hear the tune" and "Hear it" button turns into Stop while it plays. Press it to stop, and again to start from the beginning. |
+| "Hear it at 60" in the timing lessons played its own click and ignored the metronome shown at the top. | Device testing | There is now one metronome for the whole app. "Hear it" sets it to the lesson's tempo, leaves it running at the top of the screen, and brings the rhythm in on the next beat 1. |
+
+## 15 November 2026
+
+| Feedback | Source | What changed |
+| --- | --- | --- |
+| The rhythm of the day could not be changed, and there was no way to go back to an earlier one. | Device testing | The Practice tab has a drop-down listing every rhythm by week. You can pick any of them, or return to today's. Ticking Timing in the daily routine marks that rhythm as done, and done rhythms are labelled in the list. |
+| Beginners saw the same rhythm of the day over and over. | Device testing | Added six more simple rhythms. There are now 21, with five to choose from in week 1 and eight by week 2, so the daily rhythm changes through the week. |
+| In the tempo ladder, the button opened the metronome, when what you need next is the piece itself. | Device testing | The button now opens the chosen piece in Play-Along, where you can see the music, hear it and set the tempo. Play-Along also has a Start click button, so the metronome can be started without leaving the page. |
 
 ---
 

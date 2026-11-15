@@ -8,7 +8,7 @@ from stringwise.audio.metronome import (BEATS_PER_BAR, TRACK_RATE, TapTempo, cla
                                         loop_bars, render_click_track)
 from stringwise.audio.mic import SAMPLE_RATE
 from stringwise.audio.pitch import FRAME_SIZE, MIC_GAIN, detect_pitch
-from stringwise.audio.tone import synthesize_melody, synthesize_rhythm_demo
+from stringwise.audio.tone import synthesize_melody
 from stringwise.content.lessons import LESSONS
 from stringwise.content.timing import TIMING
 from stringwise.music.notes import parse_sequence
@@ -56,6 +56,15 @@ def test_a_click_is_never_heard_as_a_note():
         freq, _, _ = detect_pitch(track[start:start + FRAME_SIZE].astype(np.float32), SAMPLE_RATE)
         hits += freq is not None
     assert hits == 0
+
+
+def test_rhythm_menu_is_ordered_and_named():
+    from stringwise.music.rhythms import rhythm_menu
+    menu = rhythm_menu()
+    assert len(menu) == len(RHYTHMS) == 21
+    assert [r.week for r in menu] == sorted(r.week for r in menu)
+    assert len({r.name for r in menu}) == len(menu)                  # names are the drop-down labels
+    assert sum(r.week <= 2 for r in menu) >= 7                       # a different one each day by week 2
 
 
 def test_tap_tempo():
@@ -106,21 +115,13 @@ def test_every_week_has_a_timing_lesson_inside_the_hour():
 
 def test_rhythm_of_the_day():
     day = datetime.date(2026, 11, 12)
-    assert rhythm_of_the_day(1, day).id == "w1"                       # only one to choose from
+    week_one = {rhythm_of_the_day(1, day + datetime.timedelta(days=i)).id for i in range(7)}
+    assert len(week_one) == 5 and all(RHYTHMS[i].week == 1 for i in week_one)   # variety from the start
     for offset in range(40):
         rhythm = rhythm_of_the_day(4, day + datetime.timedelta(days=offset))
         assert rhythm.week <= 4
     seen = {rhythm_of_the_day(12, day + datetime.timedelta(days=i)).id for i in range(len(RHYTHMS))}
     assert seen == set(RHYTHMS)
-
-
-def test_rhythm_demo_has_a_count_in_bar():
-    notes = RHYTHMS["w5"].notes
-    demo = synthesize_rhythm_demo(notes, 60)
-    assert len(demo) >= 5 * BEATS_PER_BAR * SAMPLE_RATE              # 1 bar count-in + 4 bars
-    assert np.max(np.abs(demo)) <= 1.0
-    count_in = demo[int(0.2 * SAMPLE_RATE):int(0.9 * SAMPLE_RATE)]   # between clicks 1 and 2
-    assert float(np.max(np.abs(count_in))) < 1e-6
 
 
 def test_next_bar_wait_lines_up_with_beat_one(tmp_path, monkeypatch):
@@ -134,3 +135,35 @@ def test_next_bar_wait_lines_up_with_beat_one(tmp_path, monkeypatch):
     assert metronome.seconds_to_next_bar() == pytest.approx(2.5)
     monkeypatch.setattr(time, "monotonic", lambda: 103.95)   # too close: wait for the bar after
     assert metronome.seconds_to_next_bar() == pytest.approx(4.05)
+
+
+class FakeSound:
+    def __init__(self): self.state = "stop"
+    def play(self): self.state = "play"
+    def stop(self): self.state = "stop"
+
+
+def test_hear_buttons_can_tell_what_is_playing(tmp_path, monkeypatch):
+    """A button shows Stop only while its own sound is playing or waiting to start."""
+    from kivy.core import audio
+    from stringwise.audio.tone import TonePlayer
+    sounds = []
+    monkeypatch.setattr(audio.SoundLoader, "load", staticmethod(lambda path: sounds.append(FakeSound()) or sounds[-1]))
+    tones = TonePlayer(str(tmp_path))
+    notes = RHYTHMS["w1"].notes
+
+    tones.play_melody("a", notes, 0.5, tag="first")
+    assert tones.active_tag == "first" and sounds[-1].state == "play"
+    tones.play_melody("b", notes, 0.5, tag="second")            # another button takes over
+    assert tones.active_tag == "second" and sounds[0].state == "stop"
+    tones.stop()
+    assert tones.active_tag is None and sounds[-1].state == "stop"
+
+    tones.play_melody("a", notes, 0.5, wait=lambda: 2.0, tag="first")   # waiting for beat 1
+    assert tones.active_tag == "first" and sounds[-1].state == "stop"
+    tones.stop()                                                 # pressed Stop before it began
+    assert tones.active_tag is None
+
+    tones.play_melody("a", notes, 0.5, tag="first")
+    sounds[-1].state = "stop"                                    # the tune reached its end
+    assert tones.active_tag is None

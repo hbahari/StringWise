@@ -233,6 +233,39 @@ class Btn(ButtonBehavior, Label):
         self.disabled_color = self.color
 
 
+class HearButton(Btn):
+    """Starts a sound, and reads Stop while that sound is playing or about to start.
+
+    ``label`` is a function returning the button's normal text. ``play`` is a
+    function that starts the sound; it is given this button's tag to pass on
+    to the tone player.
+    """
+
+    def __init__(self, label, play, **kwargs):
+        from kivy.app import App
+        kwargs.setdefault("kind", "outline")
+        super().__init__("", **kwargs)
+        self._text_for, self._start = label, play   # not _label: Kivy uses that name
+        self._shown = None
+        self.tones = App.get_running_app().tones
+        self.bind(on_release=self._pressed)
+        self.tones.watch(self)
+        self.refresh()
+
+    def _pressed(self, *_):
+        if self.tones.active_tag == id(self):
+            self.tones.stop()
+        else:
+            self._start(id(self))
+        self.refresh()
+
+    def refresh(self):
+        text = "Stop" if self.tones.active_tag == id(self) else self._text_for()
+        if text != self._shown:
+            self._shown = text
+            self.set(text)
+
+
 class Chip(ButtonBehavior, Label):
     """A small selectable pill. ``dark`` chips sit on wood, light ones on parchment."""
 
