@@ -145,10 +145,29 @@ class FakeSound:
 
 def test_hear_buttons_can_tell_what_is_playing(tmp_path, monkeypatch):
     """A button shows Stop only while its own sound is playing or waiting to start."""
-    from kivy.core import audio
+    import sys
+    import types
     from stringwise.audio.tone import TonePlayer
     sounds = []
-    monkeypatch.setattr(audio.SoundLoader, "load", staticmethod(lambda path: sounds.append(FakeSound()) or sounds[-1]))
+
+    # Stand-ins for the two Kivy pieces the player uses, so this test also runs
+    # where Kivy is not installed (the build server's test step).
+    class SoundLoader:
+        @staticmethod
+        def load(path):
+            sounds.append(FakeSound())
+            return sounds[-1]
+
+    class Clock:
+        @staticmethod
+        def schedule_once(callback, delay):
+            return None
+
+    audio, clock = types.ModuleType("kivy.core.audio"), types.ModuleType("kivy.clock")
+    audio.SoundLoader, clock.Clock = SoundLoader, Clock
+    for name, module in (("kivy", types.ModuleType("kivy")), ("kivy.core", types.ModuleType("kivy.core")),
+                         ("kivy.core.audio", audio), ("kivy.clock", clock)):
+        monkeypatch.setitem(sys.modules, name, module)
     tones = TonePlayer(str(tmp_path))
     notes = RHYTHMS["w1"].notes
 
