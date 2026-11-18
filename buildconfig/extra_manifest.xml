@@ -1,0 +1,2 @@
+<!-- The app only runs in portrait, but devices that can't rotate must still be able to install it. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />

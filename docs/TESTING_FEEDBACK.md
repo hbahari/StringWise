@@ -8,6 +8,7 @@ sections are added as testing continues.
 
 - **Closed test**: reported by testers during the Google Play closed test.
 - **Device testing**: found by the developer while testing builds on a phone and a computer.
+- **Play Console**: raised by Google Play's own checks on an uploaded build.
 
 Keeping the two apart matters when answering Google's questions about tester feedback.
 
@@ -63,6 +64,12 @@ Keeping the two apart matters when answering Google's questions about tester fee
 | --- | --- | --- |
 | On the tuner, the needle covered the words "in tune" when a string was in tune. | Device testing | The label now sits above the dial, clear of the needle. The same applies to the finger check. |
 | After a recorded take, the result appeared below the buttons, away from the marked music. | Device testing | The result now appears directly under the marked music, and the page jumps back up to show both. |
+
+## 18 November 2026
+
+| Feedback | Source | What changed |
+| --- | --- | --- |
+| Google Play warned that the app could not be installed on some phones, tablets, Chromebooks and Android XR devices. | Play Console | The app is portrait-only, and Android took that to mean the device must have a portrait screen. That requirement is now marked as optional, so those devices can install it. |
 
 ---
 

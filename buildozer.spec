@@ -7,7 +7,7 @@ package.domain = golemapps.stringwise
 
 source.dir = .
 source.include_exts = py,png,jpg,jpeg,ttf,txt
-source.exclude_dirs = tests, bin, venv, .venv, .buildozer, .github, .git, __pycache__
+source.exclude_dirs = tests, buildconfig, docs, bin, venv, .venv, .buildozer, .github, .git, __pycache__
 
 # Shown to users in the Play Store.
 version = 2.3.0
@@ -21,6 +21,9 @@ android.numeric_version = 9
 requirements = python3,kivy==2.3.1,numpy,pyjnius,android,charset_normalizer
 
 orientation = portrait
+# Android treats a portrait-only app as needing a portrait screen, which hides it from
+# tablets, Chromebooks and Android XR on Google Play. This marks that as optional.
+android.extra_manifest_xml = buildconfig/extra_manifest.xml
 fullscreen = 0
 icon.filename = %(source.dir)s/stringwise/assets/images/icon.png
 presplash.filename = %(source.dir)s/stringwise/assets/images/presplash.png
