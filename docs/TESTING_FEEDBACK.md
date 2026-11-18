@@ -57,6 +57,13 @@ Keeping the two apart matters when answering Google's questions about tester fee
 | Beginners saw the same rhythm of the day over and over. | Device testing | Added six more simple rhythms. There are now 21, with five to choose from in week 1 and eight by week 2, so the daily rhythm changes through the week. |
 | In the tempo ladder, the button opened the metronome, when what you need next is the piece itself. | Device testing | The button now opens the chosen piece in Play-Along, where you can see the music, hear it and set the tempo. Play-Along also has a Start click button, so the metronome can be started without leaving the page. |
 
+## 16 November 2026
+
+| Feedback | Source | What changed |
+| --- | --- | --- |
+| On the tuner, the needle covered the words "in tune" when a string was in tune. | Device testing | The label now sits above the dial, clear of the needle. The same applies to the finger check. |
+| After a recorded take, the result appeared below the buttons, away from the marked music. | Device testing | The result now appears directly under the marked music, and the page jumps back up to show both. |
+
 ---
 
 ## Still to do

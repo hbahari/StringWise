@@ -37,7 +37,7 @@ class Dial(Widget):
                   cents=self._draw, caption=self._draw, verdict=self._draw)
 
     def _size(self, *_):
-        self.height = min(dp(210), self.width * 0.56)
+        self.height = min(dp(226), self.width * 0.56 + dp(16))
 
     def show(self, cents, caption="", verdict=None):
         self.cents, self.caption, self.verdict = cents, caption, verdict or ""
@@ -46,7 +46,7 @@ class Dial(Widget):
         self.canvas.clear()
         cx = self.x + self.width / 2      # not center_x: that shortcut can lag during layout
         cy = self.y + dp(22)
-        radius = min(self.height - dp(40), self.width * 0.46)
+        radius = min(self.height - dp(62), self.width * 0.46)
         if radius <= 0:
             return
         angle = 0.0 if self.cents is None else max(-50.0, min(50.0, self.cents)) / 50.0 * SWING
@@ -61,7 +61,8 @@ class Dial(Widget):
                 draw_text(glyph, cx + radius * math.sin(a), cy + radius * math.cos(a),
                           dp(17), theme.ON_WOOD_SOFT, font=theme.FONT_SYMBOL)
             if self.caption:
-                draw_text(self.caption, cx, cy + radius * 0.48, dp(15),
+                # above the arc, where the needle never covers it
+                draw_text(self.caption, cx, cy + radius + dp(22), dp(15),
                           CAPTION_COLORS.get(self.verdict or "", theme.CREAM), is_bold=True)
             # needle
             a = math.radians(angle)

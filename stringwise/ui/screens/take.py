@@ -70,6 +70,8 @@ class TakeScreen(PageScreen):
         panel = page.add(card(spacing=dp(10)))
         self.staff_holder = Box()
         panel.add_widget(self.staff_holder)
+        self.results = Box()             # filled after a take, right under the marked music
+        panel.add_widget(self.results)
         self.tempo = Txt("", halign="center")
         panel.add_widget(self.tempo)
         panel.add_widget(row(
@@ -83,7 +85,6 @@ class TakeScreen(PageScreen):
         self.button = Btn("Start recording", on_release=self._pressed)
         panel.add_widget(self.button)
 
-        self.results = page.add(Box())
         how = page.add(card())
         how.add_widget(subtitle("How to get a good check"))
         how.add_widget(bullets(text.TAKE_STEPS))
@@ -234,13 +235,12 @@ class TakeScreen(PageScreen):
                 marks[result.index] = result.timing
         self.scroller.staff.set_marks(colors, marks)
 
-        panel = card()
-        panel.add_widget(Txt(bold(report.headline), is_markup=True, size=17))
-        panel.add_widget(bullets(report.lines))
-        if report.results and any(r.played for r in report.results):
-            panel.add_widget(small(text.TAKE_LEGEND))
         self.results.clear_widgets()
-        self.results.add_widget(panel)
+        self.results.add_widget(Txt(bold(report.headline), is_markup=True, size=17))
+        self.results.add_widget(bullets(report.lines))
+        if report.results and any(r.played for r in report.results):
+            self.results.add_widget(small(text.TAKE_LEGEND))
+        self.page.scroll_y = 1            # bring the marked music and the result into view
 
     def on_leave(self, *_):
         self._cancel()
