@@ -150,7 +150,8 @@ class TonePlayer:
         """Play a piece or a rhythm. ``wait`` is an optional function returning how many
         seconds to hold back before starting; it is asked once the sound is loaded
         and ready, so the start can be lined up with the metronome."""
-        path = os.path.join(self._dir, f"melody2_{key}_{seconds_per_beat:.3f}.wav")
+        from ..music import notes as note_maths     # the reference pitch changes the file
+        path = os.path.join(self._dir, f"melody2_{key}_{seconds_per_beat:.3f}_{note_maths.A4_HZ:.0f}.wav")
         if not os.path.exists(path):
             write_wav(path, synthesize_melody(notes, seconds_per_beat))
         from kivy.clock import Clock

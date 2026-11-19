@@ -46,6 +46,10 @@ class LessonsScreen(PageScreen):
         self.lesson_box = page.add(Box(spacing=dp(14)))
         self.show_week(self.current_week, save=False)
 
+    def progress_reset(self):
+        self.completed, self.checks = set(), {}
+        self.show_week(1, save=False)
+
     # -- state ---------------------------------------------------------------
     def _save(self):
         self.app.store.set(STORE_KEY, {

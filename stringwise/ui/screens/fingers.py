@@ -97,6 +97,9 @@ class FingersScreen(ListeningScreen):
         self.target.set(f"Play {pretty(note.name)} ({note.freq:.1f} Hz)")
         self.refresh()
 
+    def reference_changed(self):
+        self._choose()
+
     def _hear_target(self, *_):
         self.app.tones.play_tone(self.logic.target.freq)
 

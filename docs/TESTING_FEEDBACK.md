@@ -71,6 +71,15 @@ Keeping the two apart matters when answering Google's questions about tester fee
 | --- | --- | --- |
 | Google Play warned that the app could not be installed on some phones, tablets, Chromebooks and Android XR devices. | Play Console | The app is portrait-only, and Android took that to mean the device must have a portrait screen. That requirement is now marked as optional, so those devices can install it. |
 
+## 19 November 2026
+
+| Feedback | Source | What changed |
+| --- | --- | --- |
+| There was no way to contact the developer or report a problem from inside the app. | Device testing | Added a Settings page, opened from a small gear at the top right of every screen. Send feedback opens your email app with a message ready to send, including the app version and phone model. There is also a button to rate the app on Google Play. |
+| Players whose teacher or orchestra tunes higher than A = 440 could not use the tuner for that. | Device testing | Settings has a tuning pitch choice from A = 440 to A = 443. It changes the tuner, the finger check, Play-Along and every note the app plays. |
+| There was no way to start the course again from the beginning. | Device testing | Settings has a Reset progress button, with a confirmation step. It clears ticks, completed weeks, saved tempos and finished rhythms. |
+| The privacy policy described the old web version and did not mention Record and Check. | Device testing | Rewrote the privacy policy for the current app and linked it from Settings. |
+
 ---
 
 ## Still to do

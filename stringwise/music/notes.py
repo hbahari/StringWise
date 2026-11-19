@@ -6,7 +6,8 @@ import math
 import re
 from dataclasses import dataclass
 
-A4_HZ = 440.0
+A4_HZ = 440.0                  # concert pitch; changed from Settings with set_reference()
+REFERENCE_CHOICES = (440, 441, 442, 443)
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 _LETTER_INDEX = {"C": 0, "D": 1, "E": 2, "F": 3, "G": 4, "A": 5, "B": 6}
 _PITCH_CLASS = {name: i for i, name in enumerate(NOTE_NAMES)}
@@ -117,6 +118,12 @@ def nearest_note(freq: float) -> Heard:
         cents=cents,
         target_hz=A4_HZ * 2 ** (rounded / 12),
     )
+
+
+def set_reference(hz: float) -> None:
+    """Retune the whole app: every note frequency is worked out from this A."""
+    global A4_HZ
+    A4_HZ = float(hz) if hz in REFERENCE_CHOICES else 440.0
 
 
 def cents_between(freq: float, target: float) -> float:

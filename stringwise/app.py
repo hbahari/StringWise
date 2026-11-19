@@ -11,6 +11,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import NoTransition, ScreenManager
+from kivy.uix.widget import Widget
 
 from . import theme
 from .audio.listener import PitchListener
@@ -23,6 +24,7 @@ from .ui import platform
 TABS = (("tuner", "Tuner"), ("metronome", "Metro"), ("lessons", "Lessons"),
         ("fingers", "Fingers"), ("theory", "Theory"), ("practice", "Practice"))
 SUB_SCREENS = {"playalong": "lessons", "take": "lessons"}     # screens opened from a tab
+STORE_SETTINGS = "settings"
 
 
 class NavButton(ButtonBehavior, Label):
@@ -45,6 +47,31 @@ class NavButton(ButtonBehavior, Label):
         self._bar.size = (self.width - dp(20), dp(3))
 
 
+class GearButton(ButtonBehavior, Widget):
+    """A small cog drawn on the canvas. Opens Settings."""
+
+    def __init__(self, **kwargs):
+        super().__init__(size_hint=(None, None), size=(dp(34), dp(34)), pos_hint={"center_y": 0.5}, **kwargs)
+        self.active = False
+        self.bind(pos=self._draw, size=self._draw, state=self._draw)
+
+    def _draw(self, *_):
+        import math
+        self.canvas.clear()
+        cx, cy = self.x + self.width / 2, self.y + self.height / 2
+        outer, inner, hole = dp(9.5), dp(7.2), dp(2.8)
+        alpha = 1.0 if (self.active or self.state == "down") else 0.62
+        points = []
+        for i in range(8 * 4):
+            angle = math.pi * 2 * i / 32
+            radius = outer if (i % 4) in (0, 1) else inner     # eight teeth
+            points += [cx + radius * math.cos(angle), cy + radius * math.sin(angle)]
+        with self.canvas:
+            Color(*rgba(theme.CREAM, alpha))
+            Line(points=points, close=True, width=dp(1.3), joint="round")
+            Line(circle=(cx, cy, hole), width=dp(1.3))
+
+
 class HeaderMetronome(BoxLayout):
     """Beat dots and a pause/resume button in the title bar.
 
@@ -53,12 +80,12 @@ class HeaderMetronome(BoxLayout):
     """
 
     def __init__(self, metronome, **kwargs):
-        super().__init__(orientation="horizontal", size_hint=(None, None), size=(dp(196), dp(36)),
-                         spacing=dp(6), pos_hint={"center_y": 0.5}, **kwargs)
+        super().__init__(orientation="horizontal", size_hint=(None, None), size=(dp(178), dp(36)),
+                         spacing=dp(4), pos_hint={"center_y": 0.5}, **kwargs)
         from .ui.metronome_bar import BeatDots
         self.metronome = metronome
-        self.dots = BeatDots(dark=True, gap=19, size=5.0, size_hint=(None, 1), width=dp(84))
-        self.button = _HeaderButton(size_hint=(None, 1), width=dp(106))
+        self.dots = BeatDots(dark=True, gap=17, size=4.6, size_hint=(None, 1), width=dp(74))
+        self.button = _HeaderButton(size_hint=(None, 1), width=dp(100))
         self.button.bind(on_release=lambda *_: metronome.toggle())
         self.add_widget(self.dots)
         self.add_widget(self.button)
@@ -109,13 +136,16 @@ class Shell(BoxLayout):
             self._backdrop = Rectangle()
         self.bind(pos=self._redraw, size=self._redraw)
 
-        header = BoxLayout(size_hint_y=None, height=dp(52), padding=(0, 0, dp(12), 0))
+        header = BoxLayout(size_hint_y=None, height=dp(52), padding=(0, 0, dp(6), 0), spacing=dp(2))
         name = Label(text="StringWise", font_name=theme.FONT_HEAD, font_size=sp(23),
-                     color=rgba(theme.CREAM), halign="left", valign="middle", padding=(dp(18), 0))
+                     color=rgba(theme.CREAM), halign="left", valign="middle", padding=(dp(14), 0))
         name.bind(size=lambda widget, size: setattr(widget, "text_size", size))
         header.add_widget(name)
         self.header_metronome = HeaderMetronome(app.metronome)
         header.add_widget(self.header_metronome)
+        self.gear = GearButton()
+        self.gear.bind(on_release=lambda *_: app.open_settings())
+        header.add_widget(self.gear)
         self.add_widget(header)
 
         self.manager = ScreenManager(transition=NoTransition())
@@ -140,6 +170,8 @@ class Shell(BoxLayout):
 
     def highlight(self, name):
         tab = SUB_SCREENS.get(name, name)
+        self.gear.active = name == "settings"
+        self.gear._draw()
         for key, button in self.nav_buttons.items():
             button.set_active(key == tab)
 
@@ -152,6 +184,7 @@ class StringWiseApp(App):
         from .ui.screens.fingers import FingersScreen
         from .ui.screens.lessons import LessonsScreen
         from .ui.screens.metronome import MetronomeScreen
+        from .ui.screens.settings import SettingsScreen
         from .ui.screens.take import TakeScreen
         from .ui.screens.playalong import PlayAlongScreen
         from .ui.screens.practice import PracticeScreen
@@ -160,13 +193,16 @@ class StringWiseApp(App):
 
         Window.clearcolor = rgba(theme.WOOD)
         self.store = ProgressStore(self.user_data_dir)
+        from .music import notes
+        notes.set_reference(self.store.get(STORE_SETTINGS, {}).get("reference", 440))
+        self._back_to = "tuner"
         self.listener = PitchListener()
         self.tones = TonePlayer(self.user_data_dir)
         self.metronome = Metronome(self.user_data_dir, output_delay=0.10 if platform.IS_ANDROID else 0.03)
 
         self.shell = Shell(self)
         for screen_class in (TunerScreen, MetronomeScreen, LessonsScreen, PlayAlongScreen,
-                             TakeScreen, FingersScreen, TheoryScreen, PracticeScreen):
+                             TakeScreen, FingersScreen, TheoryScreen, PracticeScreen, SettingsScreen):
             self.shell.manager.add_widget(screen_class())
         self.go_to("tuner")
 
@@ -181,6 +217,36 @@ class StringWiseApp(App):
         self.shell.manager.current = name
         self.shell.highlight(name)
 
+    def open_settings(self):
+        current = self.shell.manager.current
+        if current == "settings":
+            self.go_to(self._back_to)          # the gear works as a toggle
+            return
+        self._back_to = current
+        self.go_to("settings")
+
+    def close_settings(self):
+        self.go_to(self._back_to)
+
+    # -- settings that affect other screens ------------------------------------
+    def set_reference(self, hz):
+        from .music import notes
+        notes.set_reference(hz)
+        settings = dict(self.store.get(STORE_SETTINGS, {}))
+        settings["reference"] = int(notes.A4_HZ)
+        self.store.set(STORE_SETTINGS, settings)
+        self.tones.stop()
+        for screen in self.shell.manager.screens:
+            if hasattr(screen, "reference_changed"):
+                screen.reference_changed()
+
+    def reset_progress(self):
+        for key in ("lessons", "practice", "tempo_best", "rhythms_done"):
+            self.store.set(key, {} if key in ("lessons", "practice", "tempo_best") else [])
+        for screen in self.shell.manager.screens:
+            if hasattr(screen, "progress_reset"):
+                screen.progress_reset()
+
     def open_play_along(self, piece_id):
         self.shell.manager.get_screen("playalong").select(piece_id)
         self.go_to("playalong")
@@ -190,7 +256,10 @@ class StringWiseApp(App):
         self.go_to("take")
 
     def _on_key(self, _window, key, *_):
-        if key == 27 and self.shell.manager.current in SUB_SCREENS:    # Android back button
+        if key == 27 and self.shell.manager.current == "settings":     # Android back button
+            self.close_settings()
+            return True
+        if key == 27 and self.shell.manager.current in SUB_SCREENS:
             self.go_to(SUB_SCREENS[self.shell.manager.current])
             return True
         return False

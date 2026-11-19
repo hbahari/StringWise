@@ -97,3 +97,17 @@ def test_theory_blocks_are_well_formed():
         assert section.blocks
         for block in section.blocks:
             assert block[0] in kinds
+
+
+def test_reference_pitch_retunes_everything():
+    from stringwise.music import notes
+    try:
+        notes.set_reference(442)
+        assert Note("A", 4).freq == pytest.approx(442.0)
+        assert Note("G", 3).freq == pytest.approx(442 * 2 ** (-14 / 12))
+        heard = nearest_note(442.0)
+        assert (heard.name, round(heard.cents)) == ("A", 0)
+        notes.set_reference(999)                    # not a choice: back to concert pitch
+        assert notes.A4_HZ == 440.0
+    finally:
+        notes.set_reference(440)

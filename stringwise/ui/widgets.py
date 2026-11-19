@@ -43,6 +43,8 @@ class Txt(Label):
         if font:
             self.font_name = font
         self.bind(width=self._wrap, texture_size=self._fit)
+        if not text:
+            self.height = 0        # an empty label starts collapsed instead of Kivy's default 100
 
     def _wrap(self, *_):
         self.text_size = (self.width, None)

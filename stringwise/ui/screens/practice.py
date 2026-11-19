@@ -88,6 +88,12 @@ class PracticeScreen(PageScreen):
         metronome.watch(self)
         self._load()
 
+    def progress_reset(self):
+        self.best = {}
+        self.rhythms_done = set()
+        self.rhythm = None
+        self._load()
+
     def on_pre_enter(self, *_):
         self._load()          # a new day brings a new rhythm and clears yesterday's ticks
 

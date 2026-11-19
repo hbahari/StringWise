@@ -41,17 +41,23 @@ class TunerScreen(ListeningScreen):
         panel.add_widget(row(self.mic_button, self.play_button))
 
         self.chips = {}
+        self._chip_strings = {}
         chip_row = row(height=58, spacing=8)
         for string in STRINGS:
             chip = Chip(f"[size=20sp]{string.name}[/size]\n[size=11sp]{string.open_hz:.1f} Hz[/size]",
                         dark=True, height=dp(58))
             chip.bind(on_release=lambda _c, s=string: self.choose_string(s))
+            self._chip_strings[string.name] = string
             self.chips[string.name] = chip
             chip_row.add_widget(chip)
         panel.add_widget(chip_row)
 
         self.choose_string(self.reference, play=False)
         self.refresh()
+
+    def reference_changed(self):
+        for name, chip in self.chips.items():
+            chip.text = f"[size=20sp]{name}[/size]\n[size=11sp]{self._chip_strings[name].open_hz:.1f} Hz[/size]"
 
     def choose_string(self, string, play=True):
         self.reference = string
