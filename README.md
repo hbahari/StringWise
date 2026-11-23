@@ -9,7 +9,8 @@ packaged for Android with Buildozer.
 - **Record and Check**: records a take with the click, then marks each note for pitch, tuning and timing
 - **Play-Along**: follows the sheet music as you play and shows the note it hears on the staff
 - **Fingers**: a first-position map with real string spacing, and a live check for any finger
-- **Settings** behind the gear icon: tuning pitch (A = 440 to 443), feedback email, rate on Play, reset progress
+- **Settings** behind the gear icon: tuning pitch (A = 440 to 443), feedback email, rate on Play, share, reset progress
+- **First-launch tour** that highlights each part of the app, with Skip and Next (replay from Settings)
 - **Theory**, and a **Practice** tab with a rhythm of the day, a tempo ladder and a daily checklist
 
 The app works offline. Its only permission is the microphone, and audio is analysed on the device.

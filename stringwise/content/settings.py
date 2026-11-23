@@ -11,12 +11,18 @@ PITCH_TEXT = ("The note A that everything is tuned to. Leave it at 440 unless yo
               "orchestra tunes higher. It changes the tuner, the finger check, Play-Along and "
               "every note the app plays.")
 
-FEEDBACK_TITLE = "Feedback"
+FEEDBACK_TITLE = "Feedback and sharing"
 FEEDBACK_TEXT = ("Found a problem or have an idea? Send an email and it goes straight to the "
                  "developer. Your app version and phone model are added so problems are easier "
                  "to track down.")
 FEEDBACK_SUBJECT = "StringWise feedback"
 FEEDBACK_BODY = "\n\n\n---\nStringWise {version}\n{device}\n"
+SHARE_SUBJECT = "StringWise"
+SHARE_MESSAGE = ("I'm learning violin with StringWise. It has weekly lessons, a tuner and sheet "
+                 "music that listens as you play: " + STORE_WEB_LINK)
+SHARE_COPIED = "The link has been copied, ready to paste."
+SHARE_FAILED = "Sharing isn't available on this device. The link is " + STORE_WEB_LINK
+TOUR_BUTTON = "Show the app tour again"
 NO_EMAIL_APP = "No email app was found. You can write to " + SUPPORT_EMAIL + " from any device."
 NO_BROWSER = "That link could not be opened on this device."
 

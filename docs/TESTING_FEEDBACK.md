@@ -80,6 +80,21 @@ Keeping the two apart matters when answering Google's questions about tester fee
 | There was no way to start the course again from the beginning. | Device testing | Settings has a Reset progress button, with a confirmation step. It clears ticks, completed weeks, saved tempos and finished rhythms. |
 | The privacy policy described the old web version and did not mention Record and Check. | Device testing | Rewrote the privacy policy for the current app and linked it from Settings. |
 
+## 22 November 2026: Testers Community report
+
+A written report from the closed-test group, based on an earlier build. They found no
+crashes or bugs on the devices they tested, and listed these improvements.
+
+| Feedback | Source | What changed |
+| --- | --- | --- |
+| New users get no guided introduction to the app's features. | Closed test | Added a short tour that runs the first time the app opens. It dims the screen, highlights one part at a time (tuner, metronome, lessons, finger map, theory, practice and settings) and explains it in a bubble, with Skip and Next buttons. It can be watched again from Settings. |
+| There is no easy way to share the app with friends. | Closed test | Added Share StringWise to Settings. It opens the phone's share menu with a short message and the Google Play link. |
+| There is no button to rate the app. | Closed test | Already added in version 2.4.0: Rate StringWise on Google Play, in Settings. |
+| The store description is short and lacks search keywords. | Closed test | A longer description with a full feature list was written on 16 November for the next store listing update. |
+| Let users send feedback from inside the app. | Closed test | Already added in version 2.4.0: Send feedback, in Settings. |
+| Works well offline. | Closed test | The app needs no internet connection for anything except the feedback, rate and share links. |
+| Add new lessons and pieces over time, rewards for finishing lessons, and a community area. | Closed test | Noted for later versions. Not in this release. |
+
 ---
 
 ## Still to do

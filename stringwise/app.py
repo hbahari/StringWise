@@ -208,7 +208,28 @@ class StringWiseApp(App):
 
         Window.bind(on_keyboard=self._on_key, on_resize=lambda *_: self._apply_safe_area())
         Clock.schedule_once(lambda _dt: self._apply_safe_area(), 0.5)
+        self.tour = None
+        if not self.store.get("tour", {}).get("done"):
+            Clock.schedule_once(lambda _dt: self.start_tour(), 0.9)      # first launch only
         return self.shell
+
+    # -- tour --------------------------------------------------------------------
+    def start_tour(self):
+        if self.tour is not None:
+            return
+        from .ui.tour import Tour
+        current = self.shell.manager.current
+        screen = self.shell.manager.current_screen
+        if hasattr(screen, "stop_listening"):
+            screen.stop_listening()
+
+        def finished(completed):
+            self.tour = None
+            if not completed:
+                self.go_to(current)          # skipped: back to where the tour started
+
+        self.tour = Tour(self, on_finish=finished)
+        self.tour.start()
 
     # -- navigation ----------------------------------------------------------
     def go_to(self, name):
@@ -256,6 +277,9 @@ class StringWiseApp(App):
         self.go_to("take")
 
     def _on_key(self, _window, key, *_):
+        if key == 27 and self.tour is not None:                        # back closes the tour
+            self.tour.finish(False)
+            return True
         if key == 27 and self.shell.manager.current == "settings":     # Android back button
             self.close_settings()
             return True

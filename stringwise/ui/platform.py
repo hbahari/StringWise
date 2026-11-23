@@ -78,6 +78,28 @@ def send_email(address: str, subject: str, body: str) -> bool:
         return False
 
 
+def share_text(subject: str, message: str) -> str:
+    """Open the phone's share sheet. Returns "shared", "copied" (desktop) or "failed"."""
+    try:
+        if IS_ANDROID:
+            from jnius import autoclass, cast
+            Intent = autoclass("android.content.Intent")
+            String = autoclass("java.lang.String")
+            intent = Intent(Intent.ACTION_SEND)
+            intent.setType("text/plain")
+            intent.putExtra(Intent.EXTRA_SUBJECT, cast("java.lang.CharSequence", String(subject)))
+            intent.putExtra(Intent.EXTRA_TEXT, cast("java.lang.CharSequence", String(message)))
+            chooser = Intent.createChooser(intent, cast("java.lang.CharSequence", String(subject)))
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            autoclass("org.kivy.android.PythonActivity").mActivity.startActivity(chooser)
+            return "shared"
+        from kivy.core.clipboard import Clipboard
+        Clipboard.copy(message)
+        return "copied"
+    except Exception:
+        return "failed"
+
+
 def device_summary() -> str:
     """Phone model and Android version, for feedback emails."""
     if not IS_ANDROID:
