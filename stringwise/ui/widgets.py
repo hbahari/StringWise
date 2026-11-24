@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from kivy.core.text import Label as CoreLabel
-from kivy.graphics import Color, Line, Rectangle, RoundedRectangle
+from kivy.graphics import Color, Ellipse, Line, Rectangle, RoundedRectangle
 from kivy.metrics import dp, sp
 from kivy.properties import BooleanProperty, NumericProperty, StringProperty
 from kivy.uix.behaviors import ButtonBehavior
@@ -369,6 +369,66 @@ class CheckRow(ButtonBehavior, BoxLayout):
         self._mark.checked = self.checked
         self._bg_color.rgba = rgba(theme.GOOD, 0.10) if self.checked else rgba(theme.INK, 0.04)
         self._heading.color = rgba(theme.INK_SOFT if self.checked else theme.INK)
+
+
+class SlideSwitch(Widget):  # not "Switch": Kivy has a built-in style rule for that name
+    """A sliding on/off switch. The knob slides across when ``active`` changes."""
+
+    active = BooleanProperty(False)
+    knob = NumericProperty(0.0)          # 0 = off position, 1 = on position
+
+    def __init__(self, active=False, **kwargs):
+        super().__init__(size_hint=(None, None), size=(dp(50), dp(28)), **kwargs)
+        self.active = active
+        self.knob = 1.0 if active else 0.0
+        self.bind(pos=self._draw, size=self._draw, knob=self._draw, active=self._slide)
+        self._draw()
+
+    def _slide(self, *_):
+        from kivy.animation import Animation
+        Animation.cancel_all(self, "knob")
+        Animation(knob=1.0 if self.active else 0.0, duration=0.16, t="out_quad").start(self)
+
+    def _draw(self, *_):
+        self.canvas.clear()
+        x, y, w, h = self.x, self.y, self.width, self.height
+        t = self.knob
+        off, on = rgba(theme.INK_SOFT, 0.35), rgba(theme.GOOD)
+        track = [off[i] + (on[i] - off[i]) * t for i in range(4)]
+        pad = dp(3)
+        size = h - pad * 2
+        kx = x + pad + (w - pad * 2 - size) * t
+        with self.canvas:
+            Color(*track)
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[h / 2])
+            Color(0, 0, 0, 0.12)
+            Ellipse(pos=(kx, y + pad - dp(1)), size=(size, size))
+            Color(*rgba(theme.PAPER))
+            Ellipse(pos=(kx, y + pad), size=(size, size))
+
+
+class SwitchRow(ButtonBehavior, BoxLayout):
+    """A setting: label on the left, sliding switch on the right. Tapping anywhere toggles it."""
+
+    def __init__(self, label, active=False, hint=None, **kwargs):
+        super().__init__(orientation="horizontal", size_hint_y=None, spacing=dp(12),
+                         padding=(0, dp(6), 0, dp(6)), **kwargs)
+        column = Box(spacing=dp(2), pos_hint={"center_y": 0.5})
+        column.add_widget(Txt(bold(label), is_markup=True))
+        if hint:
+            column.add_widget(small(hint))
+        column.bind(height=lambda _c, h: setattr(self, "height", max(h, dp(28)) + dp(12)))
+        self.switch = SlideSwitch(active=active, pos_hint={"center_y": 0.5})
+        self.add_widget(column)
+        self.add_widget(self.switch)
+
+    @property
+    def active(self):
+        return self.switch.active
+
+    @active.setter
+    def active(self, value):
+        self.switch.active = bool(value)
 
 
 class Meter(Widget):

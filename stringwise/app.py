@@ -195,6 +195,7 @@ class StringWiseApp(App):
         self.store = ProgressStore(self.user_data_dir)
         from .music import notes
         notes.set_reference(self.store.get(STORE_SETTINGS, {}).get("reference", 440))
+        platform.keep_screen_on(self.store.get(STORE_SETTINGS, {}).get("keep_awake", False), "setting")
         self._back_to = "tuner"
         self.listener = PitchListener()
         self.tones = TonePlayer(self.user_data_dir)
@@ -261,6 +262,16 @@ class StringWiseApp(App):
             if hasattr(screen, "reference_changed"):
                 screen.reference_changed()
 
+    def set_keep_awake(self, on):
+        settings = dict(self.store.get(STORE_SETTINGS, {}))
+        settings["keep_awake"] = bool(on)
+        self.store.set(STORE_SETTINGS, settings)
+        platform.keep_screen_on(bool(on), "setting")
+
+    @property
+    def keep_awake(self):
+        return bool(self.store.get(STORE_SETTINGS, {}).get("keep_awake", False))
+
     def reset_progress(self):
         for key in ("lessons", "practice", "tempo_best", "rhythms_done"):
             self.store.set(key, {} if key in ("lessons", "practice", "tempo_best") else [])
@@ -304,6 +315,10 @@ class StringWiseApp(App):
     def on_pause(self):
         self._stop_audio()      # give the microphone back when the app is in the background
         return True
+
+    def on_resume(self):
+        # Android can drop the window flag while the app is in the background.
+        platform.keep_screen_on(self.keep_awake, "setting")
 
     def on_stop(self):
         self._stop_audio()

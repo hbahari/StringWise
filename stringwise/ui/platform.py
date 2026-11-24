@@ -114,10 +114,50 @@ def device_summary() -> str:
         return "Android"
 
 
-def keep_screen_on(on: bool) -> None:
-    """Stop the screen dimming while the app is listening."""
+_awake_reasons: set[str] = set()
+
+
+def keep_screen_on(on: bool, reason: str = "listening") -> None:
+    """Ask for the screen to stay on (or let it sleep again) for one reason.
+
+    Reasons are tracked separately: "listening" while the microphone is in use and
+    "setting" for the Keep screen on option. The screen may sleep only when no
+    reason is left, so stopping the tuner never undoes the user's setting.
+    """
+    if on:
+        _awake_reasons.add(reason)
+    else:
+        _awake_reasons.discard(reason)
+    _apply_awake(bool(_awake_reasons))
+
+
+def screen_kept_on() -> bool:
+    return bool(_awake_reasons)
+
+
+def _apply_awake(awake: bool) -> None:
     try:
-        Window.allow_screensaver = not on
+        Window.allow_screensaver = not awake
+    except Exception:
+        pass
+    if not IS_ANDROID:
+        return
+    try:
+        # The window flag is what Android checks. It must be changed on the UI thread.
+        from android.runnable import run_on_ui_thread
+        from jnius import autoclass
+
+        @run_on_ui_thread
+        def set_flag():
+            activity = autoclass("org.kivy.android.PythonActivity").mActivity
+            flag = autoclass("android.view.WindowManager$LayoutParams").FLAG_KEEP_SCREEN_ON
+            window = activity.getWindow()
+            if awake:
+                window.addFlags(flag)
+            else:
+                window.clearFlags(flag)
+
+        set_flag()
     except Exception:
         pass
 

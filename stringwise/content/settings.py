@@ -26,6 +26,10 @@ TOUR_BUTTON = "Show the app tour again"
 NO_EMAIL_APP = "No email app was found. You can write to " + SUPPORT_EMAIL + " from any device."
 NO_BROWSER = "That link could not be opened on this device."
 
+SCREEN_TITLE = "Screen"
+SCREEN_ON = "Keep the screen on"
+SCREEN_HINT = "Uses more battery."
+
 PROGRESS_TITLE = "Progress"
 PROGRESS_TEXT = ("Clears your lesson ticks, completed weeks, saved tempos and finished rhythms, "
                  "and goes back to week 1. Your settings are kept.")

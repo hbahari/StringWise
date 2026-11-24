@@ -95,6 +95,12 @@ crashes or bugs on the devices they tested, and listed these improvements.
 | Works well offline. | Closed test | The app needs no internet connection for anything except the feedback, rate and share links. |
 | Add new lessons and pieces over time, rewards for finishing lessons, and a community area. | Closed test | Noted for later versions. Not in this release. |
 
+## 24 November 2026
+
+| Feedback | Source | What changed |
+| --- | --- | --- |
+| The phone screen dims or locks while playing a piece, so you have to put the bow down and tap it. | Device testing | Added Keep the screen on to Settings. While it is on, the screen stays awake the whole time StringWise is open. It is off by default because it uses more battery. The screen still stays on while the app is listening, as before. |
+
 ---
 
 ## Still to do

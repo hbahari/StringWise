@@ -9,7 +9,7 @@ from ... import __version__, theme
 from ...content import settings as text
 from ...music import notes
 from .. import platform
-from ..widgets import Box, Btn, Chip, Txt, card, row, small, subtitle, title
+from ..widgets import Box, Btn, Chip, SwitchRow, Txt, card, row, small, subtitle, title
 from .base import PageScreen
 
 
@@ -32,6 +32,12 @@ class SettingsScreen(PageScreen):
             self.pitch_chips[hz] = chip
             chips.add_widget(chip)
         panel.add_widget(chips)
+
+        panel = page.add(card(spacing=dp(10)))
+        panel.add_widget(subtitle(text.SCREEN_TITLE))
+        self.awake_row = SwitchRow(text.SCREEN_ON, active=self.app.keep_awake, hint=text.SCREEN_HINT)
+        self.awake_row.bind(on_release=self._toggle_awake)
+        panel.add_widget(self.awake_row)
 
         panel = page.add(card(spacing=dp(10)))
         panel.add_widget(subtitle(text.FEEDBACK_TITLE))
@@ -72,6 +78,11 @@ class SettingsScreen(PageScreen):
     def _show_pitch(self):
         for hz, chip in self.pitch_chips.items():
             chip.selected = hz == int(notes.A4_HZ)
+
+    # -- screen ------------------------------------------------------------------
+    def _toggle_awake(self, *_):
+        self.app.set_keep_awake(not self.app.keep_awake)
+        self.awake_row.active = self.app.keep_awake
 
     # -- links -------------------------------------------------------------------
     def _feedback(self, *_):
