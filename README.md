@@ -31,6 +31,7 @@ stringwise/
   ui/                       widgets: dial, sheet music, fingerboard
   ui/screens/               one file per screen
   assets/                   fonts, icon, optional photos
+ios/                        iPhone build: kivy-ios scripts, microphone recipe, icon
 tests/                      pytest suite for audio, music, content and logic
 ```
 
@@ -79,6 +80,14 @@ Never commit the keystore itself. `.gitignore` already excludes `*.keystore`.
 
 In `buildozer.spec`, raise `android.numeric_version` by at least 1 and update `version`.
 The package id, `golemapps.stringwise.app`, must stay as it is.
+
+## Build for iPhone
+
+Started, not released yet. The iPhone build uses kivy-ios and a macOS runner on
+GitHub Actions (**Actions > Build iOS**). It runs without an Apple account and
+saves screenshots of the app running on a simulated iPhone. See
+[docs/IOS.md](docs/IOS.md) for what is done, what still needs an iPhone, and the
+steps once the Apple Developer account exists.
 
 ## Photos of hand positions
 

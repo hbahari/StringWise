@@ -27,6 +27,32 @@ SUB_SCREENS = {"playalong": "lessons", "take": "lessons"}     # screens opened f
 STORE_SETTINGS = "settings"
 
 
+def _cache_folder(user_data_dir: str) -> str:
+    """Where generated sound files go. They can always be made again.
+
+    On iOS that must be Library/Caches: Apple asks that files which can be
+    recreated stay out of Documents, which is backed up to iCloud.
+    """
+    if platform.IS_IOS:
+        import os
+        folder = os.path.expanduser("~/Library/Caches/stringwise")
+        try:
+            os.makedirs(folder, exist_ok=True)
+            return folder
+        except OSError:
+            pass
+    return user_data_dir
+
+
+def _output_delay() -> float:
+    """Rough time from starting a sound to hearing it, used to line up the beat dots."""
+    if platform.IS_ANDROID:
+        return 0.10
+    if platform.IS_IOS:
+        return 0.04     # a guess until it is measured on an iPhone
+    return 0.03
+
+
 class NavButton(ButtonBehavior, Label):
     def __init__(self, text, **kwargs):
         super().__init__(text=text, font_size=sp(12.5), bold=True, **kwargs)
@@ -193,13 +219,14 @@ class StringWiseApp(App):
 
         Window.clearcolor = rgba(theme.WOOD)
         self.store = ProgressStore(self.user_data_dir)
+        self.cache_dir = _cache_folder(self.user_data_dir)
         from .music import notes
         notes.set_reference(self.store.get(STORE_SETTINGS, {}).get("reference", 440))
         platform.keep_screen_on(self.store.get(STORE_SETTINGS, {}).get("keep_awake", False), "setting")
         self._back_to = "tuner"
         self.listener = PitchListener()
-        self.tones = TonePlayer(self.user_data_dir)
-        self.metronome = Metronome(self.user_data_dir, output_delay=0.10 if platform.IS_ANDROID else 0.03)
+        self.tones = TonePlayer(self.cache_dir)
+        self.metronome = Metronome(self.cache_dir, output_delay=_output_delay())
 
         self.shell = Shell(self)
         for screen_class in (TunerScreen, MetronomeScreen, LessonsScreen, PlayAlongScreen,

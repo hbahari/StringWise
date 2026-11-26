@@ -7,7 +7,7 @@ package.domain = golemapps.stringwise
 
 source.dir = .
 source.include_exts = py,png,jpg,jpeg,ttf,txt
-source.exclude_dirs = tests, buildconfig, docs, bin, venv, .venv, .buildozer, .github, .git, __pycache__
+source.exclude_dirs = tests, buildconfig, docs, ios, bin, venv, .venv, .buildozer, .github, .git, __pycache__
 
 # Shown to users in the Play Store.
 version = 2.6.0

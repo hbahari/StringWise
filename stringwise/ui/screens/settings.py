@@ -43,8 +43,10 @@ class SettingsScreen(PageScreen):
         panel.add_widget(subtitle(text.FEEDBACK_TITLE))
         panel.add_widget(small(text.FEEDBACK_TEXT))
         panel.add_widget(Btn("Send feedback", on_release=self._feedback))
-        panel.add_widget(Btn("Rate StringWise on Google Play", kind="outline", on_release=self._rate))
-        panel.add_widget(Btn("Share StringWise", kind="outline", on_release=self._share))
+        self.store_links = text.store_for(platform.IS_IOS)
+        if self.store_links:
+            panel.add_widget(Btn(self.store_links["rate_label"], kind="outline", on_release=self._rate))
+            panel.add_widget(Btn("Share StringWise", kind="outline", on_release=self._share))
         self.notice = small("", color=theme.VARNISH_DARK)
         panel.add_widget(self.notice)
 
@@ -91,15 +93,16 @@ class SettingsScreen(PageScreen):
             self.notice.set(text.NO_EMAIL_APP)
 
     def _rate(self, *_):
-        if not platform.open_link(text.STORE_APP_LINK, fallback=text.STORE_WEB_LINK):
+        links = self.store_links
+        if not platform.open_link(links["rate"], fallback=links["rate_fallback"]):
             self.notice.set(text.NO_BROWSER)
 
     def _share(self, *_):
-        result = platform.share_text(text.SHARE_SUBJECT, text.SHARE_MESSAGE)
+        result = platform.share_text(text.SHARE_SUBJECT, text.share_message(self.store_links))
         if result == "copied":
             self.notice.set(text.SHARE_COPIED)
         elif result == "failed":
-            self.notice.set(text.SHARE_FAILED)
+            self.notice.set(text.share_failed(self.store_links))
 
     def _privacy(self, *_):
         platform.open_link(text.PRIVACY_LINK)

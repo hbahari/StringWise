@@ -1,4 +1,9 @@
-"""The few things that differ between Android and a desktop."""
+"""The few things that differ between Android, iOS and a desktop.
+
+The iOS branches use pyobjus (bundled with kivy-ios) and the small ``ios`` module
+kivy-ios ships, plus our own ``swmic`` recipe for the microphone. None of them can
+run outside an iPhone build, so every call is wrapped and falls back quietly.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +12,14 @@ from kivy.core.window import Window
 from kivy.utils import platform
 
 IS_ANDROID = platform == "android"
+IS_IOS = platform == "ios"
 
 
 def request_microphone(callback) -> None:
     """Call ``callback(True or False)`` once we know whether we may record."""
+    if IS_IOS:
+        _request_microphone_ios(callback)
+        return
     if not IS_ANDROID:
         callback(True)
         return
@@ -30,6 +39,30 @@ def request_microphone(callback) -> None:
     request_permissions([Permission.RECORD_AUDIO], answered)
 
 
+def _request_microphone_ios(callback) -> None:
+    """iOS asks once with its own dialog; after that the answer lives in Settings."""
+    try:
+        import swmic
+        state = swmic.permission()
+    except Exception:
+        callback(True)      # the microphone itself will report what is missing
+        return
+    if state != "unknown":
+        callback(state == "granted")
+        return
+    swmic.request_permission()
+
+    # The answer arrives on another thread, so check for it from the Kivy clock.
+    def check(_dt):
+        answer = swmic.permission()
+        if answer == "unknown":
+            return True
+        callback(answer == "granted")
+        return False
+
+    Clock.schedule_interval(check, 0.25)
+
+
 def open_link(url: str, fallback: str | None = None) -> bool:
     """Open a web page or store link. Returns False if nothing could open it."""
     for target in (url, fallback):
@@ -43,6 +76,9 @@ def open_link(url: str, fallback: str | None = None) -> bool:
                 intent = Intent(Intent.ACTION_VIEW, Uri.parse(target))
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 autoclass("org.kivy.android.PythonActivity").mActivity.startActivity(intent)
+            elif IS_IOS:
+                import ios
+                ios.open_url(target)
             else:
                 import webbrowser
                 webbrowser.open(target)
@@ -69,6 +105,11 @@ def send_email(address: str, subject: str, body: str) -> bool:
             intent.putExtra(Intent.EXTRA_TEXT, cast("java.lang.CharSequence", String(body)))
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             autoclass("org.kivy.android.PythonActivity").mActivity.startActivity(intent)
+        elif IS_IOS:
+            from urllib.parse import quote
+            # Mail (or whichever app the user picked for email) opens with this filled in.
+            import ios
+            ios.open_url(f"mailto:{address}?subject={quote(subject)}&body={quote(body)}")
         else:
             import webbrowser
             from urllib.parse import quote
@@ -93,6 +134,8 @@ def share_text(subject: str, message: str) -> str:
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             autoclass("org.kivy.android.PythonActivity").mActivity.startActivity(chooser)
             return "shared"
+        if IS_IOS:
+            return "shared" if _share_ios(message) else "failed"
         from kivy.core.clipboard import Clipboard
         Clipboard.copy(message)
         return "copied"
@@ -100,8 +143,56 @@ def share_text(subject: str, message: str) -> str:
         return "failed"
 
 
+def _share_ios(message: str) -> bool:
+    """Show the iOS share sheet over the app."""
+    try:
+        from pyobjus import autoclass, objc_str
+        UIApplication = autoclass("UIApplication")
+        NSArray = autoclass("NSArray")
+        sheet = autoclass("UIActivityViewController").alloc().initWithActivityItems_applicationActivities_(
+            NSArray.arrayWithObject_(objc_str(message)), None)
+        controller = _ios_top_controller(UIApplication)
+        if controller is None:
+            return False
+        # On an iPad the sheet is a popover and must be anchored, or iOS stops the app.
+        popover = _objc_get(sheet, "popoverPresentationController")
+        if popover is not None:
+            popover.sourceView = _objc_get(controller, "view")
+        controller.presentViewController_animated_completion_(sheet, True, None)
+        return True
+    except Exception:
+        return False
+
+
+def _ios_top_controller(UIApplication):
+    """The view controller currently on screen, to present the share sheet from."""
+    window = _objc_get(UIApplication.sharedApplication(), "keyWindow")
+    if window is None:
+        return None
+    controller = _objc_get(window, "rootViewController")
+    while controller is not None:
+        shown = _objc_get(controller, "presentedViewController")
+        if shown is None:
+            break
+        controller = shown
+    return controller
+
+
+def _objc_get(obj, name):
+    """Read an Objective-C property. pyobjus offers some as attributes, some as methods."""
+    value = getattr(obj, name)
+    return value() if callable(value) else value
+
+
 def device_summary() -> str:
-    """Phone model and Android version, for feedback emails."""
+    """Phone model and system version, for feedback emails."""
+    if IS_IOS:
+        try:
+            from pyobjus import autoclass
+            device = autoclass("UIDevice").currentDevice()
+            return f"{_ios_model()}, {device.systemName().UTF8String()} {device.systemVersion().UTF8String()}"
+        except Exception:
+            return "iOS"
     if not IS_ANDROID:
         import platform as host
         return f"{host.system()} {host.release()}"
@@ -112,6 +203,15 @@ def device_summary() -> str:
         return f"{Build.MANUFACTURER} {Build.MODEL}, Android {Version.RELEASE}"
     except Exception:
         return "Android"
+
+
+def _ios_model() -> str:
+    """The hardware name, such as iPhone15,2. UIDevice only says "iPhone"."""
+    try:
+        import os
+        return os.uname().machine
+    except Exception:
+        return "iPhone"
 
 
 _awake_reasons: set[str] = set()
@@ -140,6 +240,13 @@ def _apply_awake(awake: bool) -> None:
         Window.allow_screensaver = not awake
     except Exception:
         pass
+    if IS_IOS:
+        try:
+            from pyobjus import autoclass
+            autoclass("UIApplication").sharedApplication().setIdleTimerDisabled_(awake)
+        except Exception:
+            pass
+        return
     if not IS_ANDROID:
         return
     try:
@@ -166,8 +273,17 @@ def safe_area() -> tuple[float, float]:
     """(top, bottom) space in pixels taken by the status and navigation bars.
 
     Recent Android versions draw apps edge to edge. If Kivy's window covers the
-    whole screen we pad the layout so nothing hides under the system bars.
+    whole screen we pad the layout so nothing hides under the system bars. On an
+    iPhone the same space is the notch or Dynamic Island and the home bar.
     """
+    if IS_IOS:
+        try:
+            import ios
+            area = ios.get_safe_area()      # in points; Kivy's window is in pixels
+            scale = ios.get_scale()
+            return float(area["top"]) * scale, float(area["bottom"]) * scale
+        except Exception:
+            return 0.0, 0.0
     if not IS_ANDROID:
         return 0.0, 0.0
     try:

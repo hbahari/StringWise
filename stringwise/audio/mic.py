@@ -1,7 +1,8 @@
 """Microphone input.
 
-Android uses the platform AudioRecord class through pyjnius. On a desktop the
-optional ``sounddevice`` package is used so the app can be run and tested
+Android uses the platform AudioRecord class through pyjnius. iOS uses our small
+``swmic`` module (ios/recipes/swmic), built into the app by kivy-ios. On a desktop
+the optional ``sounddevice`` package is used so the app can be run and tested
 without a phone. Every backend hands back mono float32 samples in -1..1.
 """
 
@@ -71,6 +72,50 @@ class AndroidMic:
                 record.stop()
             finally:
                 record.release()
+
+
+class IosMic:
+    """Reads from swmic, which records on iOS's audio thread into a ring buffer."""
+
+    #: how long read() waits for the first samples before giving up
+    timeout = 2.0
+
+    def __init__(self, module=None) -> None:
+        self._module = module
+        self._open = False
+
+    def open(self) -> None:
+        if self._module is None:
+            try:
+                import swmic
+            except Exception as exc:  # pragma: no cover - only on a broken build
+                raise MicError("Microphone support is missing from this build.") from exc
+            self._module = swmic
+        if self._module.permission() == "denied":
+            raise MicError("Microphone access is off. Allow it for StringWise in your phone's "
+                           "Settings, under Apps, then try again.")
+        code = self._module.start(float(SAMPLE_RATE))
+        if code != 0:
+            raise MicError(f"Could not open the microphone (code {code}). "
+                           "Another app may be using it.")
+        self._open = True
+
+    def read(self, count: int) -> np.ndarray:
+        waited = 0.0
+        while self._open:
+            data = self._module.read(count)
+            if data:
+                return np.frombuffer(data, dtype=np.float32).copy()
+            if waited >= self.timeout:
+                raise MicError("The microphone stopped responding.")
+            time.sleep(0.005)
+            waited += 0.005
+        return np.zeros(0, dtype=np.float32)
+
+    def close(self) -> None:
+        if self._open:
+            self._open = False
+            self._module.stop()
 
 
 class DesktopMic:
@@ -146,4 +191,8 @@ def open_default_mic():
         from kivy.utils import platform
     except Exception:  # pragma: no cover
         platform = "unknown"
-    return AndroidMic() if platform == "android" else DesktopMic()
+    if platform == "android":
+        return AndroidMic()
+    if platform == "ios":
+        return IosMic()
+    return DesktopMic()

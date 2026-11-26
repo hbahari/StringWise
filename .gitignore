@@ -7,3 +7,4 @@ venv/
 .venv/
 *.keystore
 *.jks
+ios/build/

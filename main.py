@@ -2,6 +2,11 @@
 
 import os
 
+# iOS: ask SDL (which plays Kivy's sounds) for a play-and-record audio session, so
+# the metronome and the microphone can run together. It must be set before Kivy
+# starts SDL's audio. Other platforms ignore it.
+os.environ.setdefault("SDL_AUDIO_CATEGORY", "AVAudioSessionCategoryPlayAndRecord")
+
 from kivy.utils import platform
 
 if platform not in ("android", "ios"):
